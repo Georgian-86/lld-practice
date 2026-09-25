@@ -137,13 +137,26 @@ export const layoutSchema = z
   .refine((l) => Object.keys(l).length <= LIMITS.maxEntities * 2, 'Too many layout entries');
 export type DiagramLayout = z.infer<typeof layoutSchema>;
 
+/**
+ * An accepted "curveball": the interviewer's change request (the problem's
+ * extension scenario), taken on after the given version was reviewed.
+ * Presentation and framing only: never evaluated.
+ */
+export const challengeSchema = z.object({
+  kind: z.literal('curveball'),
+  fromVersion: z.number().int().min(1).max(1000),
+  acceptedAt: z.string().max(40),
+});
+export type Challenge = z.infer<typeof challengeSchema>;
+
 export const draftSchema = z.discriminatedUnion('format', [
-  z.object({ format: z.literal('structured'), design: designModelSchema, layout: layoutSchema.optional() }),
+  z.object({ format: z.literal('structured'), design: designModelSchema, layout: layoutSchema.optional(), challenge: challengeSchema.optional() }),
   z.object({
     format: z.literal('mermaid'),
     design: designModelSchema,
     mermaid: z.string().max(LIMITS.maxLongText * 5),
     layout: layoutSchema.optional(),
+    challenge: challengeSchema.optional(),
   }),
 ]);
 export type Draft = z.infer<typeof draftSchema>;

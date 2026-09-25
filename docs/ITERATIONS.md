@@ -213,3 +213,47 @@ in the platform could check that answer.
    is autosaved.
 5. Carried over: Groq still can't be reached from this environment, and canvas
    editing is still desktop-first.
+
+---
+
+## Iteration 6: a distinct identity, and the curveball
+
+**Critique going in:** the home page looked like a generic SaaS template (a
+headline, five step cards, a grid). The report was a long text document that
+ended at a number. Nothing tested what interviewers actually push on next:
+*what happens to your design when the requirements change?*
+
+**Done:**
+- **The curveball.** After feedback, the report offers the interviewer's change
+  request (the problem's extension scenario). Taking it tags the draft with a
+  `challenge`, and the workspace then shows a curveball banner with a **live
+  blast-radius counter** ("vs v1: +5 new · 2 changed · 10 untouched"). New and
+  changed classes are tagged on the canvas as you work.
+- **Change impact on the report.** For every revision, the annotated diagram has
+  a view switch: *Findings* / *Change since vN* / *Walkthroughs*. The impact view
+  colours classes (green new, amber changed, with the exact changes on hover) and
+  gives an open/closed verdict with per-class change lists. A curveball response
+  opens on this view, under a "Curveball result" card.
+- **Walkthrough replay on the report:** submitted scenarios are drawn over the
+  diagram read-only, with the sequence diagram.
+- **Sequence diagrams can be expanded** into a dialog.
+- **Home page redesign:** a drafting-grid hero whose diagram assembles itself
+  (classes, a numbered walkthrough, and a curveball class tagged *new*). The
+  three distinctive features are named ("Draw real UML", "Walk it through",
+  "Take the curveball"). Problem cards have a difficulty accent and a best-score
+  ring, and the primary action suggests the easiest problem not tried yet.
+- **Score reveal:** large score rings count up once (instant with reduced motion).
+- **Keyboard-shortcuts sheet** (`?` or the keyboard button in the workspace).
+- Tests: `diffDesigns` (extension vs modification, renames, name fallback,
+  ripple), the challenge reducer action, and an e2e step that takes the curveball,
+  checks the live banner and canvas tags, and checks the curveball verdict and
+  walkthrough replay on the v2 report (accessibility audited).
+
+### Critique / backlog
+1. The curveball is always the problem's single extension scenario. A small pool
+   of change requests per problem would make repeat practice fresher.
+2. The blast radius is shown but not scored. It could feed the extensibility
+   criterion, once there's evidence it doesn't penalise legitimate refactors.
+3. The hero illustration is hidden on phones (it's too small to read there).
+4. The Groq reviewer is still unverified live from this environment. The first
+   Render deploy with `GROQ_API_KEY` is where it will first run for real.

@@ -1,5 +1,6 @@
 import type { Grade } from '@blueprint/shared';
 import { GRADE_LABELS, gradeFor } from '@blueprint/shared';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 
 export function scoreTone(score: number): 'success' | 'primary' | 'warning' | 'danger' {
@@ -15,6 +16,7 @@ export function ScoreRing({ score, size = 120, stroke = 10, label = true }: { sc
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, score));
   const tone = scoreTone(clamped);
+  const shown = useCountUp(clamped, size >= 96);
   return (
     <div className="relative inline-grid place-items-center" style={{ width: size, height: size }} role="img" aria-label={`Score ${clamped} out of 100`}>
       <svg width={size} height={size} className="-rotate-90">
@@ -28,7 +30,7 @@ export function ScoreRing({ score, size = 120, stroke = 10, label = true }: { sc
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - clamped / 100)}
+          strokeDashoffset={circumference * (1 - shown / 100)}
           style={{ transition: 'stroke-dashoffset 700ms cubic-bezier(0.16, 1, 0.3, 1)' }}
         />
       </svg>
@@ -36,7 +38,7 @@ export function ScoreRing({ score, size = 120, stroke = 10, label = true }: { sc
         <div className="absolute inset-0 grid place-items-center">
           <div className="text-center leading-none">
             <div className={cn('font-semibold tabular-nums tracking-tight', TEXT[tone])} style={{ fontSize: size * 0.28 }}>
-              {clamped}
+              {shown}
             </div>
             {size >= 96 && <div className="mt-1 text-[11px] font-medium text-muted">/ 100</div>}
           </div>
@@ -74,4 +76,26 @@ export function Meter({ value, className, tone, label }: { value: number; classN
       <div className={cn('h-full rounded-full transition-[width] duration-700', bg)} style={{ width: `${Math.max(2, Math.min(100, value))}%` }} />
     </div>
   );
+}
+
+/** Counts up to `target` once on mount (large score rings only); instant with reduced motion. */
+function useCountUp(target: number, enabled: boolean): number {
+  const [value, setValue] = useState(() =>
+    enabled && typeof window !== 'undefined' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : target,
+  );
+  useEffect(() => {
+    if (value === target) return;
+    const from = value;
+    const start = performance.now();
+    const duration = 900;
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(Math.round(from + (target - from) * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+    // Only re-run when the target changes; `value` is the animation's own state.
+  }, [target]);
+  return value;
 }

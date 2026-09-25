@@ -13,7 +13,7 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex items-center gap-1 rounded-lg bg-surface-2 p-1">
+    <div role="group" aria-label={label} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-surface-2 p-1">
       {options.map((o) => (
         <button
           key={o.value}

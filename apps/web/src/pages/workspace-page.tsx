@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
 import { isTerminal } from '@blueprint/shared';
-import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, ChevronRight, CloudOff, Loader2, Send, XCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, ChevronRight, CloudOff, Keyboard, Loader2, Send, X, XCircle, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { Kbd } from '@/components/ui/misc';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/misc';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ImpactCounts, useImpact } from '@/features/feedback/change-impact';
 import { DifficultyBadge } from '@/features/problems/difficulty';
 import { readinessChecks, type Check } from '@/features/workspace/checklist';
 import { ClassesPanel } from '@/features/workspace/classes-panel';
@@ -73,8 +74,32 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   const design = draft.design;
   const autosave = useAutosave(attempt.id, draft);
   const liveChecks = useLiveChecks(problem.id, design, tab === 'canvas');
+
+  // Curveball: accepted from a report (?curveball=<version>), active until a later version is submitted.
+  const curveballParam = params.get('curveball');
+  useEffect(() => {
+    if (!curveballParam) return;
+    const fromVersion = Number(curveballParam);
+    if (Number.isInteger(fromVersion) && attempt.submissions.some((s) => s.version === fromVersion) && draft.challenge?.fromVersion !== fromVersion) {
+      dispatch({ type: 'challenge/set', challenge: { kind: 'curveball', fromVersion, acceptedAt: new Date().toISOString() }, transient: true });
+    }
+    setParams(
+      (p) => {
+        p.delete('curveball');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [curveballParam]);
+  const challenge = draft.challenge;
+  const curveballBase =
+    challenge && !attempt.submissions.some((s) => s.version > challenge.fromVersion)
+      ? attempt.submissions.find((s) => s.version === challenge.fromVersion)
+      : undefined;
+  const impact = useImpact(curveballBase?.id, design);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Keep the cached attempt in sync so navigating away and back never shows a stale draft.
   useEffect(() => {
@@ -110,6 +135,11 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   // Ctrl/⌘+Z / Shift+Z / Y undo and redo design edits (text fields keep their own undo).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === '?' && !(e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')) {
+        e.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();
       if (key === 'z' || key === 'y') {
@@ -164,6 +194,9 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           <Button size="sm" variant="ghost" className={cn(tab !== 'canvas' && 'lg:hidden')} icon={<BookOpen className="size-4" />} onClick={() => setBriefOpen(true)} aria-label="Brief & hints">
             <span className="hidden sm:inline">Brief & hints</span>
           </Button>
+          <Button size="icon" variant="ghost" className="hidden md:inline-flex" onClick={() => setShortcutsOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
+            <Keyboard className="size-4" />
+          </Button>
           <SaveIndicator state={autosave.state} savedAt={autosave.savedAt} onRetry={() => void autosave.saveNow()} />
           <Tooltip
             content={
@@ -187,6 +220,29 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           </Tooltip>
         </div>
       </div>
+
+      {curveballBase && (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-ai/25 bg-ai-soft px-4 py-2 text-[13px] text-ai-soft-fg sm:px-5" role="status">
+          <span className="inline-flex items-center gap-1.5 font-semibold">
+            <Zap className="size-4" /> Curveball
+          </span>
+          <span className="min-w-0 flex-1 basis-80 text-fg-2">{problem.extensionScenario.prompt}</span>
+          {impact && (
+            <span className="inline-flex items-center gap-2 text-xs text-muted">
+              vs v{curveballBase.version}: <ImpactCounts impact={impact} />
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'challenge/set', challenge: undefined, transient: true })}
+            className="rounded p-1 text-muted hover:bg-surface hover:text-fg"
+            aria-label="Drop the curveball"
+            title="Drop the curveball"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
 
       {pending && (
         <div className="flex shrink-0 items-center gap-2 border-b border-primary/20 bg-primary-soft px-5 py-2 text-[13px] text-primary-soft-fg">
@@ -219,6 +275,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
               layout={draft.layout}
               dispatch={dispatch}
               history={{ undo, redo, canUndo, canRedo }}
+              impact={impact}
               findings={liveChecks.findings}
               checking={liveChecks.checking}
               focus={tab === 'canvas' ? focus : null}
@@ -261,9 +318,35 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           setTab(t);
         }}
       />
+
+      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Keyboard shortcuts" size="sm">
+        <dl className="divide-y divide-border text-[13px]">
+          {SHORTCUTS.map(([keys, action]) => (
+            <div key={action} className="flex items-center justify-between gap-4 py-2">
+              <dt className="text-fg-2">{action}</dt>
+              <dd className="flex shrink-0 items-center gap-1">
+                {keys.map((k, i) => (
+                  <Kbd key={i}>{k}</Kbd>
+                ))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Dialog>
     </div>
   );
 }
+
+const SHORTCUTS: [string[], string][] = [
+  [['Ctrl', 'Z'], 'Undo'],
+  [['Ctrl', 'Shift', 'Z'], 'Redo'],
+  [['Ctrl', 'S'], 'Save now'],
+  [['Ctrl', 'Enter'], 'Submit for review'],
+  [['Delete'], 'Delete the selected class or relationship'],
+  [['Double-click'], 'Edit a class'],
+  [['Shift', 'Drag'], 'Select several classes'],
+  [['?'], 'Show this list'],
+];
 
 const TAB_LABELS: Record<Tab, string> = {
   canvas: 'Diagram',

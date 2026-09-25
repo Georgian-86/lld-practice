@@ -13,7 +13,11 @@ mode** they click classes in call order to walk through a requirement: each call
 is drawn as a numbered arrow, checked against the diagram (can this class
 actually reach that one?), and turned into a sequence diagram. Edits can be
 undone and redone (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>). Patterns,
-trade-offs and an extension-scenario answer complete the submission. It is evaluated in the background by **16 deterministic
+trade-offs and an extension-scenario answer complete the submission. After
+feedback, the learner can **take the curveball**, which is the interviewer's
+change request. The next report measures its **blast radius**: which classes were
+added, which existing classes had to change (and how), and which stayed untouched.
+It shows this on the diagram and gives an open/closed verdict. It is evaluated in the background by **16 deterministic
 design rules** plus an **AI reviewer grounded on those rules** (Claude, or an
 offline simulator when no API key is set). The learner gets a rubric score and
 prioritised, explainable findings that link back into the editor. Every version
@@ -68,8 +72,11 @@ defines one web service, with SQLite on a 1 GB persistent disk at `/data`.
 
 1. Push this branch, or merge it into the branch you deploy from.
 2. In Render: **New → Blueprint**, connect this repository, and pick that branch.
-3. When prompted, set `ANTHROPIC_API_KEY` to use Claude, or leave it empty to run
-   with the offline reviewer.
+3. When prompted for secrets, paste **`GROQ_API_KEY`** (Groq, `llama-3.3-70b-versatile`)
+   or `ANTHROPIC_API_KEY` (Claude). Leave both empty to run with the offline reviewer.
+   The provider is picked automatically from whichever key is set. After the first
+   deploy, `GET /api/health` reports the active reviewer (e.g. `groq:llama-3.3-70b-versatile`),
+   and the header chip in the app changes from *AI: simulated* to the live model.
 4. **Apply.** Render builds the image and health-checks `/api/health`. The app is
    then live at `https://blueprint-lld.onrender.com` (or the name you chose).
 

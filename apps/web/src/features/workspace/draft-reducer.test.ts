@@ -79,3 +79,15 @@ describe('draftReducer', () => {
   });
 });
 
+
+describe('curveball challenge', () => {
+  it('sets and clears the challenge without touching the design', () => {
+    const start = draftWith(['A']);
+    const challenge = { kind: 'curveball' as const, fromVersion: 1, acceptedAt: '2026-01-01T00:00:00Z' };
+    const withChallenge = draftReducer(start, { type: 'challenge/set', challenge });
+    expect(withChallenge.challenge).toEqual(challenge);
+    expect(withChallenge.design).toBe(start.design);
+    const cleared = draftReducer(withChallenge, { type: 'challenge/set', challenge: undefined });
+    expect('challenge' in cleared).toBe(false);
+  });
+});

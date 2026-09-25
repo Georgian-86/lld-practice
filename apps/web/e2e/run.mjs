@@ -67,6 +67,7 @@ step('Home');
 await page.goto(BASE);
 await page.getByRole('heading', { name: 'Problems' }).waitFor();
 await page.getByText('Parking Lot').first().waitFor();
+await page.waitForTimeout(1600); // let the hero diagram finish assembling
 await shot(page, '01-home');
 await audit(page, 'home');
 
@@ -209,7 +210,7 @@ await page.getByText(/Reviewing version 1/).waitFor();
 await shot(page, '12-evaluating', false);
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
 await page.waitForTimeout(800);
-await page.getByText('Your diagram, annotated').scrollIntoViewIfNeeded();
+await page.getByText('Your diagram', { exact: true }).scrollIntoViewIfNeeded();
 await page.locator('.react-flow__node').first().waitFor();
 await page.locator('.react-flow__edge').first().waitFor({ timeout: 5000 }); // the annotated diagram must draw relationships
 await shot(page, '13-feedback-v1');
@@ -225,9 +226,13 @@ await shot(page, '13b-deep-link', false);
 await page.goBack();
 await page.getByText('Rubric breakdown').waitFor();
 
-step('Revise and submit v2');
-await page.getByRole('button', { name: 'Revise design' }).click();
+step('Take the curveball and submit v2');
+await page.getByText('The interviewer’s curveball').scrollIntoViewIfNeeded();
+await page.getByRole('button', { name: 'Take the curveball' }).click();
 await page.getByRole('button', { name: 'Submit for review' }).waitFor();
+await page.getByRole('status').filter({ hasText: 'Curveball' }).waitFor();
+await page.waitForTimeout(1200);
+await page.waitForFunction(() => !/Unsaved changes|Saving…/.test(document.body.innerText), null, { timeout: 8000 });
 await page.evaluate(
   async ([id, draft]) => {
     const learner = localStorage.getItem('blueprint.learnerId');
@@ -237,15 +242,29 @@ await page.evaluate(
       body: JSON.stringify({ draft }),
     });
   },
-  [attemptId, parkingDesign({ improved: true })],
+  [attemptId, { ...parkingDesign({ improved: true }), challenge: { kind: 'curveball', fromVersion: 1, acceptedAt: new Date().toISOString() } }],
 );
 await page.reload();
 await page.locator('.react-flow__node', { hasText: 'DisplayBoard' }).waitFor();
+// Live blast radius: the banner counts, and new classes are tagged on the canvas.
+await page.getByRole('status').filter({ hasText: 'vs v1' }).waitFor();
+await page.locator('.react-flow__node').getByText('new', { exact: true }).first().waitFor();
+await page.waitForTimeout(400);
+await shot(page, '13c-curveball-workspace', false);
+await audit(page, 'curveball workspace');
 await page.getByRole('button', { name: 'Submit for review' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Submit', exact: true }).click();
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
-await page.waitForTimeout(800);
+await page.getByText(/Curveball result/).waitFor();
+await page.getByText('Change since version 1').waitFor(); // the diagram opens on the impact view
+await page.waitForTimeout(1000);
 await shot(page, '14-feedback-v2');
+await audit(page, 'feedback v2 (curveball)');
+await page.getByRole('button', { name: /Walkthroughs/ }).click();
+await page.getByTestId('call-label').first().waitFor();
+await page.waitForTimeout(400);
+await page.getByText('Your diagram', { exact: true }).scrollIntoViewIfNeeded();
+await shot(page, '14b-feedback-walkthrough', false);
 
 step('Compare');
 await page.getByRole('button', { name: /Compare with v1/ }).click();

@@ -1,6 +1,6 @@
 import '@xyflow/react/dist/style.css';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
-import type { DesignModel, DiagramLayout, Entity, EntityKind, Finding, ProblemDTO, Relationship, RelationshipType } from '@blueprint/shared';
+import type { DesignImpact, DesignModel, DiagramLayout, Entity, EntityKind, Finding, ProblemDTO, Relationship, RelationshipType } from '@blueprint/shared';
 import { analyseFlow, nameKey } from '@blueprint/shared';
 import {
   applyEdgeChanges,
@@ -19,7 +19,7 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import { Check, ChevronDown, LayoutGrid, Maximize, Plus, Redo2, Route, Undo2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useTheme } from '@/hooks/use-theme';
 import { cn } from '@/lib/cn';
@@ -52,6 +52,12 @@ export interface DesignCanvasProps {
   /** Live checks while editing, or the evaluation's findings when read-only. */
   findings?: Finding[] | null;
   checking?: boolean;
+  /** Colours classes by how a revision changed them (added / modified). */
+  impact?: DesignImpact | null;
+  /** Read-only: replay the design's scenario walkthroughs instead of showing findings. */
+  replay?: boolean;
+  /** Replaces the inspector's default content when nothing is selected. */
+  aside?: ReactNode;
   /** Entity name to select and centre (deep links from feedback). */
   focus?: string | null;
   className?: string;
@@ -67,7 +73,7 @@ export function DesignCanvas(props: DesignCanvasProps) {
   );
 }
 
-function CanvasInner({ problem, design, layout, dispatch, history, findings, checking, focus, className }: DesignCanvasProps) {
+function CanvasInner({ problem, design, layout, dispatch, history, findings, checking, focus, impact, replay, aside, className }: DesignCanvasProps) {
   const readOnly = !dispatch;
   const { theme } = useTheme();
   const flow = useReactFlow();
@@ -104,7 +110,10 @@ function CanvasInner({ problem, design, layout, dispatch, history, findings, che
 
   /* ------------------------------ scenarios ------------------------------- */
   const flows = useMemo(() => design.flows ?? [], [design.flows]);
-  const activeFlow = scenarioMode ? (flows.find((f) => f.id === activeFlowId) ?? flows[0]) : undefined;
+  const replaying = readOnly && Boolean(replay);
+  const showFlows = scenarioMode || replaying;
+  const activeFlow = showFlows ? (flows.find((f) => f.id === activeFlowId) ?? flows[0]) : undefined;
+  const impactById = useMemo(() => new Map((impact?.entities ?? []).map((e) => [e.id, e])), [impact]);
   const analyses = useMemo(() => new Map(flows.map((f) => [f.id, analyseFlow(design, f)])), [flows, design]);
   const caller = design.entities.find((e) => e.id === callerId && e.name.trim());
   const inFlow = useMemo(() => {
@@ -136,12 +145,13 @@ function CanvasInner({ problem, design, layout, dispatch, history, findings, che
             requirements: key ? (requirementsByEntity.get(key) ?? []).sort() : [],
             readOnly,
             dropTarget: dropTarget === entity.id,
-            scenario: !scenarioMode ? undefined : entity.id === caller?.id ? 'caller' : inFlow.has(key) ? 'in-flow' : 'idle',
+            scenario: !showFlows ? undefined : scenarioMode && entity.id === caller?.id ? 'caller' : inFlow.has(key) ? 'in-flow' : 'idle',
+            impact: showFlows ? undefined : impactById.get(entity.id),
           },
         };
       });
     });
-  }, [design.entities, positions, issues, requirementsByEntity, readOnly, dropTarget, selection, scenarioMode, caller?.id, inFlow]);
+  }, [design.entities, positions, issues, requirementsByEntity, readOnly, dropTarget, selection, scenarioMode, showFlows, caller?.id, inFlow, impactById]);
 
   /* -------------------------------- edges -------------------------------- */
   const [edges, setEdges] = useState<CanvasEdge[]>([]);
@@ -167,7 +177,7 @@ function CanvasInner({ problem, design, layout, dispatch, history, findings, che
           type: 'uml',
           selected: selection?.kind === 'edge' && selection.id === r.id,
           deletable: !readOnly,
-          data: { relationship: r, parallelIndex: flip === 1 ? index : count - 1 - index, parallelCount: count, dimmed: scenarioMode },
+          data: { relationship: r, parallelIndex: flip === 1 ? index : count - 1 - index, parallelCount: count, dimmed: showFlows },
         };
       });
 
@@ -198,7 +208,7 @@ function CanvasInner({ problem, design, layout, dispatch, history, findings, che
       });
     }
     setEdges([...relationshipEdges, ...callEdges]);
-  }, [design.relationships, idByName, selection, readOnly, scenarioMode, activeFlow, analyses]);
+  }, [design.relationships, idByName, selection, readOnly, showFlows, activeFlow, analyses]);
 
   /* ------------------------------ interaction ---------------------------- */
   const onNodesChange = useCallback((changes: NodeChange<ClassNodeType>[]) => {
@@ -509,6 +519,19 @@ function CanvasInner({ problem, design, layout, dispatch, history, findings, che
               onSetCaller={(name) => setCallerId(name ? (idByName.get(nameKey(name)) ?? null) : null)}
               onClose={toggleScenario}
             />
+          ) : replaying ? (
+            <ScenarioPanel
+              problem={problem}
+              design={design}
+              flow={activeFlow}
+              analyses={analyses}
+              caller={null}
+              onSelectFlow={setActiveFlowId}
+              onCreate={() => undefined}
+              onSetCaller={() => undefined}
+            />
+          ) : aside && !selectedEntity && !selectedRelationship ? (
+            aside
           ) : null}
         </CanvasInspector>
       </div>

@@ -156,6 +156,16 @@ evidence, and any **critical** rule finding caps the criterion at 50. The overal
 score is weighted by the problem's rubric. Rules keep the AI honest, and the AI
 covers what rules can't see.
 
+**Change impact (curveball):** `diffDesigns` (in `packages/shared`) compares two
+versions class by class. It matches classes by id, so renames are followed, and
+falls back to matching by name. A class counts as *modified* only when its own
+code would change: kind, name, members, responsibilities, or the relationships
+it holds (outgoing). A new class that implements an existing interface therefore
+leaves the interface untouched. The verdict is *extended* (nothing existing
+changed), *contained* (one or two classes, usually the wiring point) or *rippled*.
+This is the practical test of the open/closed principle, and it is deterministic,
+so it is shown as a measurement rather than scored.
+
 **Comparison:** findings carry a stable fingerprint (rule id + evidence key), so
 "fixed / still open / new" between versions is reliable for rule findings and
 best-effort for AI findings.

@@ -1,4 +1,4 @@
-import type { Entity, Finding } from '@blueprint/shared';
+import type { Entity, EntityImpact, Finding } from '@blueprint/shared';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, CircleDot, Info } from 'lucide-react';
 import { memo } from 'react';
@@ -14,6 +14,8 @@ export type ClassNodeData = {
   dropTarget: boolean;
   /** Scenario mode: the class the next call starts from, or one already in the walkthrough. */
   scenario?: 'caller' | 'in-flow' | 'idle';
+  /** How a revision changed this class, when comparing versions. */
+  impact?: EntityImpact;
 };
 export type ClassNodeType = Node<ClassNodeData, 'class'>;
 
@@ -77,7 +79,7 @@ function IssueBadge({ issues }: { issues: Finding[] }) {
 const handleClass = '!size-2.5 !rounded-full !border-2 !border-[var(--surface)] !bg-primary opacity-0 transition-opacity group-hover:opacity-100';
 
 export const ClassNode = memo(function ClassNode({ data, selected }: NodeProps<ClassNodeType>) {
-  const { entity, issues, requirements, readOnly, dropTarget, scenario } = data;
+  const { entity, issues, requirements, readOnly, dropTarget, scenario, impact } = data;
   const name = entity.name.trim();
   return (
     <div
@@ -89,6 +91,8 @@ export const ClassNode = memo(function ClassNode({ data, selected }: NodeProps<C
         scenario && 'cursor-pointer',
         scenario === 'caller' && 'ring-2 ring-ai ring-offset-2 ring-offset-[var(--canvas-bg)]',
         scenario === 'in-flow' && 'border-ai/60',
+        impact?.status === 'added' && 'border-success border-2',
+        impact?.status === 'modified' && 'border-warning border-2',
       )}
       style={{ width: NODE_WIDTH }}
     >
@@ -96,6 +100,7 @@ export const ClassNode = memo(function ClassNode({ data, selected }: NodeProps<C
         <span className="absolute -top-3 left-3 z-10 rounded-full bg-ai px-2 py-0.5 text-[10.5px] font-semibold text-white shadow-sm">calls next</span>
       ) : null}
       {!scenario && <IssueBadge issues={issues} />}
+      {impact && impact.status !== 'unchanged' && <ImpactTag impact={impact} />}
       <div className={cn('rounded-t-lg px-3 py-2 text-center', entity.kind === 'interface' ? 'bg-ai-soft' : entity.kind === 'enum' ? 'bg-warning-soft' : 'bg-primary-soft')}>
         {STEREOTYPE[entity.kind] && <div className="text-[10.5px] font-medium leading-none text-muted">{STEREOTYPE[entity.kind]}</div>}
         <div className={cn('mt-0.5 truncate text-[13.5px] font-semibold text-fg', entity.kind === 'abstract' && 'italic', !name && 'italic text-subtle')}>
@@ -127,3 +132,31 @@ export const ClassNode = memo(function ClassNode({ data, selected }: NodeProps<C
     </div>
   );
 });
+
+function ImpactTag({ impact }: { impact: EntityImpact }) {
+  const tag = (
+    <span
+      className={cn(
+        'absolute -top-3 left-3 z-10 rounded-full px-2 py-0.5 text-[10.5px] font-semibold text-white shadow-sm',
+        impact.status === 'added' ? 'bg-success' : 'bg-warning',
+      )}
+    >
+      {impact.status === 'added' ? 'new' : `changed · ${impact.changes.length}`}
+    </span>
+  );
+  if (impact.status !== 'modified') return tag;
+  return (
+    <Tooltip
+      content={
+        <ul className="space-y-0.5">
+          {impact.changes.slice(0, 8).map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+          {impact.changes.length > 8 && <li>+{impact.changes.length - 8} more</li>}
+        </ul>
+      }
+    >
+      {tag}
+    </Tooltip>
+  );
+}

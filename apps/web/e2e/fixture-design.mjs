@@ -68,6 +68,17 @@ export function parkingDesign({ improved = false } = {}) {
       'FR-6': ['EntryGate'],
       'NFR-1': ['SpotAllocationStrategy'],
     });
+    design.flows = [
+      {
+        id: 'f1',
+        requirementId: 'FR-3',
+        steps: [
+          { id: 's1', from: 'EntryGate', to: 'ParkingLot', message: 'park(vehicle)' },
+          { id: 's2', from: 'ParkingLot', to: 'SpotAllocationStrategy', message: 'allocate(vehicle, floors)' },
+          { id: 's3', from: 'ParkingLot', to: 'Floor', message: 'findFree(type)' },
+        ],
+      },
+    ];
     design.tradeOffs.push('Allocation locks per floor rather than globally: simpler than optimistic compare-and-set, but two gates on the same floor wait for each other.');
     design.extensionAnswer += ' ParkingLot, Floor, Ticket and EntryGate stay untouched because they only depend on the ParkingSpot and PricingStrategy abstractions.';
   }

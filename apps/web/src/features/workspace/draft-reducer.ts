@@ -1,4 +1,4 @@
-import type { DesignModel, Draft, Entity, EntityKind, Flow, FlowStep, PatternUsage, Relationship } from '@blueprint/shared';
+import type { Challenge, DesignModel, Draft, Entity, EntityKind, Flow, FlowStep, PatternUsage, Relationship } from '@blueprint/shared';
 import { nameKey } from '@blueprint/shared';
 import { newId } from '@/lib/format';
 
@@ -23,7 +23,8 @@ export type DraftAction =
   | { type: 'flow/remove'; id: string }
   | { type: 'flow/step-add'; flowId: string; step: FlowStep }
   | { type: 'flow/step-update'; flowId: string; stepId: string; patch: Partial<Omit<FlowStep, 'id'>> }
-  | { type: 'flow/step-remove'; flowId: string; stepId: string };
+  | { type: 'flow/step-remove'; flowId: string; stepId: string }
+  | { type: 'challenge/set'; challenge: Challenge | undefined };
 
 function withDesign(draft: Draft, update: (design: DesignModel) => DesignModel): Draft {
   return { ...draft, design: update(draft.design) };
@@ -185,6 +186,12 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
         ...d,
         flows: (d.flows ?? []).map((f) => (f.id === action.flowId ? { ...f, steps: f.steps.filter((st) => st.id !== action.stepId) } : f)),
       }));
+
+    case 'challenge/set': {
+      if (action.challenge) return { ...draft, challenge: action.challenge };
+      const { challenge: _, ...rest } = draft;
+      return rest as Draft;
+    }
 
     case 'layout/set':
       return { ...draft, layout: action.replace ? action.positions : { ...draft.layout, ...action.positions } };

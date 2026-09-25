@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EvaluationReport, ProblemDTO, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
 import { CRITERIA, GRADE_LABELS } from '@blueprint/shared';
-import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Sparkles, Wrench } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Sparkles, Wrench, Zap } from 'lucide-react';
+import { IMPACT_VERDICT_TEXT } from '@blueprint/shared';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { api, queryKeys } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/misc';
 import { Meter, ScoreRing, scoreTone } from '@/components/ui/score';
@@ -13,6 +15,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import { DesignCanvas } from '@/features/workspace/canvas/design-canvas';
+import { ImpactCounts, ImpactPanel, useImpact, VERDICT_TONE } from './change-impact';
 import { FindingCard } from './finding-card';
 
 type Filter = 'improve' | 'strengths' | 'all';
@@ -26,6 +29,7 @@ export function FeedbackReport({
   report,
   previous,
   problem,
+  isLatest = false,
 }: {
   submission: SubmissionDTO;
   report: EvaluationReport;
@@ -33,7 +37,12 @@ export function FeedbackReport({
   problem?: ProblemDTO;
   /** The latest earlier version with feedback, if any. */
   previous?: SubmissionSummaryDTO;
+  /** The newest version of the attempt: offers the curveball. */
+  isLatest?: boolean;
 }) {
+  const impact = useImpact(previous?.id, submission.draft.design);
+  const challenge = submission.draft.challenge;
+  const curveballResponse = Boolean(challenge && previous && challenge.fromVersion === previous.version);
   const simulated = isSimulated(report);
   const toneText = { success: 'text-success', primary: 'text-primary', warning: 'text-warning', danger: 'text-danger' }[scoreTone(report.overallScore)];
 
@@ -99,18 +108,20 @@ export function FeedbackReport({
         </Card>
       </div>
 
+      {curveballResponse && impact && problem && <CurveballResult prompt={problem.extensionScenario.prompt} impact={impact} baseVersion={previous!.version} />}
+
       {problem && submission.draft.design.entities.length > 0 && (
-        <Card className="overflow-hidden">
-          <CardHeader
-            title="Your diagram, annotated"
-            icon={<Network className="size-4" />}
-            description="Badges show where the feedback applies. Select a class to see what was said about it."
-          />
-          <div className="flex h-[520px]">
-            <DesignCanvas problem={problem} design={submission.draft.design} layout={submission.draft.layout} findings={report.findings} />
-          </div>
-        </Card>
+        <DiagramCard
+          problem={problem}
+          submission={submission}
+          report={report}
+          impact={impact}
+          previous={previous}
+          initialView={curveballResponse ? 'impact' : 'findings'}
+        />
       )}
+
+      {isLatest && problem && !curveballResponse && <CurveballOffer problem={problem} submission={submission} />}
 
       <Findings report={report} simulated={simulated} attemptId={submission.attemptId} />
 
@@ -334,6 +345,112 @@ function HowEvaluated({ report }: { report: EvaluationReport }) {
           </div>
         </div>
       )}
+    </Card>
+  );
+}
+
+type DiagramView = 'findings' | 'impact' | 'flows';
+
+function DiagramCard({
+  problem,
+  submission,
+  report,
+  impact,
+  previous,
+  initialView,
+}: {
+  problem: ProblemDTO;
+  submission: SubmissionDTO;
+  report: EvaluationReport;
+  impact: ReturnType<typeof useImpact>;
+  previous?: SubmissionSummaryDTO;
+  initialView: DiagramView;
+}) {
+  const [view, setView] = useState<DiagramView>(initialView);
+  const flows = submission.draft.design.flows ?? [];
+  const options: { value: DiagramView; label: string }[] = [{ value: 'findings', label: 'Findings' }];
+  if (previous && impact) options.push({ value: 'impact', label: `Change since v${previous.version}` });
+  if (flows.length > 0) options.push({ value: 'flows', label: `Walkthroughs · ${flows.length}` });
+  const active = options.some((o) => o.value === view) ? view : 'findings';
+  const description = {
+    findings: 'Badges show where the feedback applies. Select a class to see what was said about it.',
+    impact: 'Green classes are new, amber ones had to change. Hover a changed class to see what changed.',
+    flows: 'The calls you walked through, drawn over your diagram.',
+  }[active];
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <Network className="mt-0.5 size-4 shrink-0 text-muted" />
+          <div className="min-w-0">
+            <h2 className="text-[14px] font-semibold text-fg">Your diagram</h2>
+            <p className="text-[12.5px] text-muted">{description}</p>
+          </div>
+        </div>
+        {options.length > 1 && <Segmented label="Diagram view" value={active} onChange={(v) => setView(v as DiagramView)} options={options} />}
+      </div>
+      <div className="flex h-[540px]">
+        <DesignCanvas
+          key={active}
+          problem={problem}
+          design={submission.draft.design}
+          layout={submission.draft.layout}
+          findings={active === 'findings' ? report.findings : null}
+          impact={active === 'impact' ? impact : null}
+          replay={active === 'flows'}
+          aside={active === 'impact' && impact && previous ? <ImpactPanel impact={impact} baseVersion={previous.version} /> : undefined}
+        />
+      </div>
+    </Card>
+  );
+}
+
+/** The interviewer's follow-up: a change request that tests whether the design absorbs change. */
+function CurveballOffer({ problem, submission }: { problem: ProblemDTO; submission: SubmissionDTO }) {
+  const navigate = useNavigate();
+  return (
+    <Card className="relative overflow-hidden border-ai/30">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--ai-soft),transparent_60%)]" aria-hidden />
+      <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-ai text-white shadow-sm">
+          <Zap className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-wide text-ai-soft-fg">The interviewer’s curveball</div>
+          <p className="mt-1 text-[14px] leading-relaxed text-fg">{problem.extensionScenario.prompt}</p>
+          <p className="mt-1 text-[12.5px] text-muted">
+            Change your design to handle it, then submit. Your next report measures the blast radius: how many existing classes had to change.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          className="shrink-0 bg-ai hover:bg-ai/90"
+          icon={<Zap className="size-4" />}
+          onClick={() => navigate(`/attempts/${submission.attemptId}?tab=canvas&curveball=${submission.version}`)}
+        >
+          Take the curveball
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function CurveballResult({ prompt, impact, baseVersion }: { prompt: string; impact: NonNullable<ReturnType<typeof useImpact>>; baseVersion: number }) {
+  const verdict = IMPACT_VERDICT_TEXT[impact.verdict];
+  return (
+    <Card className="border-ai/30 p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-ai-soft text-ai">
+          <Zap className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-wide text-ai-soft-fg">Curveball result · since version {baseVersion}</div>
+          <p className="mt-1 text-[13px] italic text-muted">“{prompt}”</p>
+          <div className={cn('mt-3 text-lg font-semibold tracking-tight', VERDICT_TONE[impact.verdict])}>{verdict.title}</div>
+          <p className="mt-0.5 text-[13px] leading-relaxed text-fg-2">{verdict.body}</p>
+          <ImpactCounts impact={impact} className="mt-2 text-[13px] text-muted" />
+        </div>
+      </div>
     </Card>
   );
 }
