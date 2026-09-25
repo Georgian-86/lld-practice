@@ -1,0 +1,335 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
+import { isTerminal } from '@blueprint/shared';
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, CloudOff, Loader2, Send, XCircle } from 'lucide-react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { toast } from 'sonner';
+import { api, ApiError, queryKeys } from '@/api/client';
+import { ErrorView } from '@/components/error-view';
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/misc';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DifficultyBadge } from '@/features/problems/difficulty';
+import { readinessChecks, type Check } from '@/features/workspace/checklist';
+import { ClassesPanel } from '@/features/workspace/classes-panel';
+import { DiagramPanel } from '@/features/workspace/diagram-panel';
+import { draftReducer, isMapped } from '@/features/workspace/draft-reducer';
+import { PatternsPanel } from '@/features/workspace/patterns-panel';
+import { ReasoningPanel } from '@/features/workspace/reasoning-panel';
+import { RelationshipsPanel } from '@/features/workspace/relationships-panel';
+import { WorkspaceSidebar } from '@/features/workspace/sidebar';
+import { TraceabilityPanel } from '@/features/workspace/traceability-panel';
+import { useAutosave, type SaveState } from '@/features/workspace/use-autosave';
+import { useDocumentTitle } from '@/hooks/use-document-title';
+import { cn } from '@/lib/cn';
+import { timeAgo } from '@/lib/format';
+
+const TABS = ['classes', 'relationships', 'traceability', 'patterns', 'reasoning', 'diagram'] as const;
+type Tab = (typeof TABS)[number];
+
+export function WorkspacePage() {
+  const { attemptId = '' } = useParams();
+  const attempt = useQuery({ queryKey: queryKeys.attempt(attemptId), queryFn: () => api.attempt(attemptId) });
+  const problemId = attempt.data?.problemId;
+  const problem = useQuery({
+    queryKey: queryKeys.problem(problemId ?? ''),
+    queryFn: () => api.problem(problemId!),
+    enabled: Boolean(problemId),
+    staleTime: Infinity,
+  });
+  useDocumentTitle(problem.data ? `${problem.data.title} · Workspace` : 'Workspace');
+
+  const error = attempt.error ?? problem.error;
+  if (error) return <ErrorView error={error} onRetry={() => void (attempt.error ? attempt.refetch() : problem.refetch())} />;
+  if (!attempt.data || !problem.data) return <WorkspaceSkeleton />;
+  return <Workspace key={attempt.data.id} attempt={attempt.data} problem={problem.data} />;
+}
+
+function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: ProblemDTO }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = TABS.includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : 'classes';
+  const setTab = (next: string) =>
+    setParams(
+      (p) => {
+        p.set('tab', next);
+        return p;
+      },
+      { replace: true },
+    );
+
+  const [draft, dispatch] = useReducer(draftReducer, attempt.draft);
+  const design = draft.design;
+  const autosave = useAutosave(attempt.id, draft);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Keep the cached attempt in sync so navigating away and back never shows a stale draft.
+  useEffect(() => {
+    queryClient.setQueryData<AttemptDTO>(queryKeys.attempt(attempt.id), (prev) => (prev ? { ...prev, draft } : prev));
+  }, [draft, attempt.id, queryClient]);
+
+  const latest = attempt.submissions.at(-1);
+  const pending = latest && !isTerminal(latest.status) ? latest : null;
+  const checks = useMemo(() => readinessChecks(problem, design), [problem, design]);
+  const blocked = checks.some((c) => c.level === 'block');
+
+  const submit = useMutation({
+    mutationFn: () => api.submit(attempt.id, draft),
+    onSuccess: (submission) => {
+      autosave.markSaved(draft);
+      queryClient.setQueryData(queryKeys.submission(submission.id), submission);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attempt(attempt.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.problems });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.progress });
+      navigate(`/submissions/${submission.id}`);
+    },
+    onError: (error) => {
+      setConfirmOpen(false);
+      const details = error instanceof ApiError ? (error.details as { submissionId?: string } | undefined) : undefined;
+      toast.error(error instanceof ApiError && error.code === 'duplicate_submission' ? 'No changes to submit' : 'Submission not accepted', {
+        description: error.message,
+        ...(details?.submissionId ? { action: { label: 'View', onClick: () => navigate(`/submissions/${details.submissionId}`) } } : {}),
+      });
+    },
+  });
+
+  const named = design.entities.filter((e) => e.name.trim()).length;
+  const mapped = problem.functionalRequirements.filter((r) => isMapped(design, r.id)).length;
+  const counts: Record<Tab, string | null> = {
+    classes: named ? String(named) : null,
+    relationships: design.relationships.length ? String(design.relationships.length) : null,
+    traceability: `${mapped}/${problem.functionalRequirements.length}`,
+    patterns: design.patterns.length ? String(design.patterns.length) : null,
+    reasoning: null,
+    diagram: null,
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-[560px] flex-col">
+      {/* Toolbar */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface px-4 py-2.5 sm:px-5">
+        <nav className="flex min-w-0 items-center gap-1.5 text-[13px]" aria-label="Breadcrumb">
+          <Link to="/" className="text-muted hover:text-fg">
+            Problems
+          </Link>
+          <ChevronRight className="size-3.5 text-subtle" />
+          <Link to={`/problems/${problem.id}`} className="truncate font-medium text-fg hover:underline">
+            {problem.title}
+          </Link>
+          <DifficultyBadge difficulty={problem.difficulty} />
+          <span className="hidden text-xs text-muted sm:inline">· Draft v{(latest?.version ?? 0) + 1}</span>
+        </nav>
+        <div className="ml-auto flex items-center gap-3">
+          <SaveIndicator state={autosave.state} savedAt={autosave.savedAt} onRetry={() => void autosave.saveNow()} />
+          <Button
+            variant="primary"
+            icon={<Send className="size-4" />}
+            onClick={() => setConfirmOpen(true)}
+            disabled={Boolean(pending)}
+            title={pending ? `Version ${pending.version} is still being evaluated` : undefined}
+          >
+            Submit for review
+          </Button>
+        </div>
+      </div>
+
+      {pending && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-primary/20 bg-primary-soft px-5 py-2 text-[13px] text-primary-soft-fg">
+          <Loader2 className="size-4 animate-spin" />
+          Version {pending.version} is being reviewed. You can keep editing; submit again once its feedback is ready.
+          <Link to={`/submissions/${pending.id}`} className="ml-auto font-medium underline-offset-2 hover:underline">
+            View progress
+          </Link>
+        </div>
+      )}
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(300px,360px)_1fr]">
+        <aside className="hidden min-h-0 flex-col border-r border-border bg-surface lg:flex" aria-label="Problem">
+          <WorkspaceSidebar problem={problem} attempt={attempt} design={design} />
+        </aside>
+
+        <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-col bg-bg">
+          <TabsList className="shrink-0 border-b border-border bg-surface px-3">
+            {TABS.map((t) => (
+              <TabsTrigger key={t} value={t}>
+                {TAB_LABELS[t]}
+                {counts[t] && <span className="rounded bg-surface-2 px-1.5 text-[11px] tabular-nums text-muted">{counts[t]}</span>}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="classes" className="flex min-h-0 flex-1 flex-col bg-surface outline-none data-[state=inactive]:hidden">
+            <ClassesPanel design={design} dispatch={dispatch} />
+          </TabsContent>
+          <TabsContent value="relationships" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+            <RelationshipsPanel design={design} dispatch={dispatch} />
+          </TabsContent>
+          <TabsContent value="traceability" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+            <TraceabilityPanel problem={problem} design={design} dispatch={dispatch} />
+          </TabsContent>
+          <TabsContent value="patterns" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+            <PatternsPanel design={design} dispatch={dispatch} />
+          </TabsContent>
+          <TabsContent value="reasoning" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+            <ReasoningPanel problem={problem} design={design} dispatch={dispatch} />
+          </TabsContent>
+          <TabsContent value="diagram" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+            <DiagramPanel design={design} dispatch={dispatch} />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <SubmitDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        checks={checks}
+        blocked={blocked}
+        submitting={submit.isPending}
+        onSubmit={() => submit.mutate()}
+        onGoTo={(t) => {
+          setConfirmOpen(false);
+          setTab(t);
+        }}
+      />
+    </div>
+  );
+}
+
+const TAB_LABELS: Record<Tab, string> = {
+  classes: 'Classes',
+  relationships: 'Relationships',
+  traceability: 'Traceability',
+  patterns: 'Patterns',
+  reasoning: 'Trade-offs & extension',
+  diagram: 'Diagram',
+};
+
+function SaveIndicator({ state, savedAt, onRetry }: { state: SaveState; savedAt: Date | null; onRetry: () => void }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => force((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  if (state === 'error') {
+    return (
+      <button type="button" onClick={onRetry} className="inline-flex items-center gap-1.5 text-xs font-medium text-danger hover:underline">
+        <CloudOff className="size-3.5" /> Not saved — retry
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
+      {state === 'saving' ? (
+        <>
+          <Loader2 className="size-3.5 animate-spin" /> Saving…
+        </>
+      ) : state === 'dirty' ? (
+        <>
+          <span className="size-1.5 rounded-full bg-warning" /> Unsaved changes
+        </>
+      ) : (
+        <>
+          <CheckCircle2 className="size-3.5 text-success" /> {savedAt ? `Saved ${timeAgo(savedAt.toISOString())}` : 'All changes saved'}
+        </>
+      )}
+    </span>
+  );
+}
+
+function SubmitDialog({
+  open,
+  onOpenChange,
+  checks,
+  blocked,
+  submitting,
+  onSubmit,
+  onGoTo,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  checks: Check[];
+  blocked: boolean;
+  submitting: boolean;
+  onSubmit: () => void;
+  onGoTo: (tab: Check['tab']) => void;
+}) {
+  const warnings = checks.filter((c) => c.level === 'warn').length;
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Submit for review?"
+      description={
+        blocked
+          ? 'A few things must be fixed before this design can be evaluated.'
+          : warnings
+            ? 'You can submit now — the feedback will cover the gaps below — or fill them in first.'
+            : 'Your design looks complete. Feedback usually takes a few seconds.'
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Keep editing
+          </Button>
+          <Button variant="primary" onClick={onSubmit} disabled={blocked} loading={submitting} icon={<Send className="size-4" />}>
+            Submit
+          </Button>
+        </>
+      }
+    >
+      <ul className="divide-y divide-border rounded-xl border border-border">
+        {checks.map((c) => (
+          <li key={c.id} className="flex items-center gap-3 px-3.5 py-2.5">
+            {c.level === 'ok' ? (
+              <CheckCircle2 className="size-4 shrink-0 text-success" />
+            ) : c.level === 'warn' ? (
+              <AlertTriangle className="size-4 shrink-0 text-warning" />
+            ) : (
+              <XCircle className="size-4 shrink-0 text-danger" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className={cn('text-[13px]', c.level === 'ok' ? 'text-fg-2' : 'font-medium text-fg')}>{c.label}</div>
+              {c.detail && <div className="truncate text-xs text-muted">{c.detail}</div>}
+            </div>
+            {c.level !== 'ok' && (
+              <button type="button" onClick={() => onGoTo(c.tab)} className="shrink-0 text-xs font-medium text-primary hover:underline">
+                Fix
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!blocked && (
+        <p className="mt-3 flex items-start gap-2 text-xs text-muted">
+          <AlertCircle className="mt-px size-3.5 shrink-0" />
+          Evaluation runs in the background. You can leave the page and come back — your feedback will be waiting.
+        </p>
+      )}
+    </Dialog>
+  );
+}
+
+function WorkspaceSkeleton() {
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+      <div className="flex items-center gap-3 border-b border-border bg-surface px-5 py-3">
+        <Skeleton className="h-5 w-64" />
+        <Skeleton className="ml-auto h-9 w-40" />
+      </div>
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[360px_1fr]">
+        <div className="hidden space-y-3 border-r border-border bg-surface p-5 lg:block">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-4/6" />
+        </div>
+        <div className="space-y-3 p-5">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
