@@ -89,6 +89,18 @@ describe('practice loop over HTTP', () => {
     expect(catalogue[0].progress).toMatchObject({ attempts: 1, submissions: 2, bestScore: v2Done.evaluation!.overallScore });
   });
 
+  it('lints an in-progress design with the same rules as scoring, without storing anything', async () => {
+    const design = goodParkingDesign();
+    delete design.requirementMap['FR-5'];
+    const res = await t.app.inject({ method: 'POST', url: '/api/lint', headers: LEARNER, payload: { problemId: 'parking-lot', design } });
+    expect(res.statusCode).toBe(200);
+    const titles = res.json().findings.map((f: { title: string }) => f.title);
+    expect(titles).toContain('FR-5 has no owner');
+    expect((await t.app.inject({ url: '/api/progress', headers: LEARNER })).json().totals.submissions).toBe(0);
+    const unknown = await t.app.inject({ method: 'POST', url: '/api/lint', headers: LEARNER, payload: { problemId: 'nope', design } });
+    expect(unknown.statusCode).toBe(404);
+  });
+
   it('autosaves drafts', async () => {
     const attempt = await startAttempt(t);
     const res = await t.app.inject({

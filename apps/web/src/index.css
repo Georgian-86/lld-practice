@@ -44,6 +44,13 @@
 
   --ring: rgb(79 70 229 / 0.35);
   --shadow-color: 220 40% 20%;
+
+  /* Diagram canvas */
+  --canvas-bg: #f5f6f9;
+  --canvas-dot: #cfd4dd;
+  --uml-line: #475467;
+  --uml-border: #c7cdd8;
+  --minimap-mask: rgb(245 246 249 / 0.7);
   color-scheme: light;
 }
 
@@ -86,6 +93,12 @@
 
   --ring: rgb(109 102 242 / 0.45);
   --shadow-color: 220 60% 2%;
+
+  --canvas-bg: #0b0f19;
+  --canvas-dot: #253045;
+  --uml-line: #a4adbd;
+  --uml-border: #334155;
+  --minimap-mask: rgb(11 15 25 / 0.7);
   color-scheme: dark;
 }
 
@@ -209,4 +222,27 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
   }
+}
+
+/* React Flow chrome, themed with our tokens */
+.blueprint-canvas .react-flow__controls {
+  @apply overflow-hidden rounded-lg border border-border shadow-md;
+}
+.blueprint-canvas .react-flow__controls-button {
+  @apply border-border bg-surface text-fg-2 hover:bg-surface-2;
+}
+.blueprint-canvas .react-flow__controls-button svg {
+  fill: currentColor;
+}
+.blueprint-canvas .react-flow__minimap {
+  @apply overflow-hidden rounded-lg border border-border shadow-md;
+  background: var(--surface);
+}
+.blueprint-canvas .react-flow__node.selected,
+.blueprint-canvas .react-flow__node:focus-visible {
+  outline: none;
+}
+.blueprint-canvas .react-flow__edge.selected,
+.blueprint-canvas .react-flow__edge:focus-visible {
+  outline: none;
 }

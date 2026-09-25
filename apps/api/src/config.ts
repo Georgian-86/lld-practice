@@ -25,10 +25,12 @@ const envSchema = z.object({
   WEB_DIST_DIR: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
-  /** auto = Claude when ANTHROPIC_API_KEY is set, otherwise the offline simulator. */
-  LLM_PROVIDER: z.enum(['auto', 'anthropic', 'simulated', 'none']).default('auto'),
+  /** auto = Claude if ANTHROPIC_API_KEY is set, else Groq if GROQ_API_KEY is set, else the offline simulator. */
+  LLM_PROVIDER: z.enum(['auto', 'anthropic', 'groq', 'simulated', 'none']).default('auto'),
   ANTHROPIC_API_KEY: z.string().optional(),
-  LLM_MODEL: z.string().default('claude-opus-5'),
+  GROQ_API_KEY: z.string().optional(),
+  /** Defaults per provider: claude-opus-5 (Anthropic), llama-3.3-70b-versatile (Groq). */
+  LLM_MODEL: z.string().optional(),
   LLM_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
@@ -46,7 +48,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   const problemsDir = parsed.PROBLEMS_DIR ?? findUp('problems');
   if (!problemsDir) throw new Error('Could not find the problems directory. Set PROBLEMS_DIR.');
   let provider = parsed.LLM_PROVIDER;
-  if (provider === 'auto') provider = parsed.ANTHROPIC_API_KEY ? 'anthropic' : 'simulated';
+  if (provider === 'auto') {
+    provider = parsed.ANTHROPIC_API_KEY ? 'anthropic' : parsed.GROQ_API_KEY ? 'groq' : 'simulated';
+  }
+  const defaultModel = provider === 'groq' ? 'llama-3.3-70b-versatile' : 'claude-opus-5';
 
   return {
     env: parsed.NODE_ENV,
@@ -57,9 +62,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     webDistDir: parsed.WEB_DIST_DIR ?? findUp('apps/web/dist'),
     logLevel: parsed.LOG_LEVEL,
     llm: {
-      provider: provider as 'anthropic' | 'simulated' | 'none',
-      apiKey: parsed.ANTHROPIC_API_KEY,
-      model: parsed.LLM_MODEL,
+      provider: provider as 'anthropic' | 'groq' | 'simulated' | 'none',
+      apiKey: provider === 'groq' ? parsed.GROQ_API_KEY : parsed.ANTHROPIC_API_KEY,
+      model: parsed.LLM_MODEL ?? defaultModel,
       effort: parsed.LLM_EFFORT,
       timeoutMs: parsed.LLM_TIMEOUT_MS,
       maxRetries: parsed.LLM_MAX_RETRIES,

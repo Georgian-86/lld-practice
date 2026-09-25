@@ -3,6 +3,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z, ZodError } from 'zod';
 import {
+  designModelSchema,
   revealHintRequestSchema,
   saveDraftRequestSchema,
   startAttemptRequestSchema,
@@ -132,6 +133,12 @@ export async function buildApp(container: Container, options: AppOptions = {}): 
     container.worker.notify();
     reply.status(202);
     return submission;
+  });
+
+  // Live checks for the canvas: deterministic rules only, nothing stored.
+  app.post('/api/lint', async (request) => {
+    const body = z.object({ problemId: id, design: designModelSchema }).parse(request.body);
+    return { findings: container.lint.lint(body.problemId, body.design) };
   });
 
   app.get('/api/compare', async (request) => {

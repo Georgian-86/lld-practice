@@ -28,6 +28,8 @@ async function newPage(viewport = { width: 1440, height: 900 }, colorScheme = 'l
   const page = await context.newPage();
   page.on('console', (msg) => {
     if (msg.type() === 'error' && !EXPECTED_STATUS.test(msg.text())) problems.push(`[console] ${page.url()} :: ${msg.text()}`);
+    // React Flow reports broken edges/handles as warnings ("[React Flow]: …"); treat those as bugs too.
+    if (msg.type() === 'warning' && msg.text().includes('React Flow')) problems.push(`[react-flow] ${page.url()} :: ${msg.text()}`);
   });
   page.on('pageerror', (err) => problems.push(`[pageerror] ${page.url()} :: ${err.message}`));
   page.on('response', (res) => {
@@ -76,23 +78,35 @@ await audit(page, 'problem');
 
 step('Start attempt → empty workspace');
 await page.getByRole('button', { name: /Start attempt/ }).click();
-await page.getByText('Start with the nouns').waitFor();
+await page.getByText('Start drawing your design').waitFor();
 await shot(page, '03-workspace-empty', false);
+await audit(page, 'empty canvas');
 
-step('Build a little of the design through the UI');
-await page.getByRole('button', { name: 'Add class' }).click();
+step('Draw on the canvas: add classes, connect them, drop a requirement');
+await page.getByTitle('Add class').click();
 await page.getByLabel('Name').fill('ParkingLot');
 await page.getByLabel('Responsibilities').fill('Coordinates entry and exit');
-await page.getByRole('button', { name: 'Add', exact: true }).click();
+await page.getByTitle('Add class').click();
 await page.getByLabel('Name').fill('Floor');
 await page.getByLabel('Responsibilities').fill('Tracks free spots');
-await page.getByRole('tab', { name: /Relationships/ }).click();
-await page.getByRole('button', { name: 'Add relationship' }).click();
-await page.getByLabel('Relationship type').selectOption('composition');
-await page.getByRole('tab', { name: /Traceability/ }).click();
-await page.getByRole('button', { name: 'Map class' }).first().click();
-await page.getByRole('menuitemcheckbox', { name: 'Floor' }).click();
-await page.keyboard.press('Escape');
+const canvasNode = (name) => page.locator('.react-flow__node', { hasText: name }).first();
+await page.getByRole('button', { name: 'Relationship type for new connections' }).click();
+await page.getByRole('menuitemradio', { name: /owns/ }).click();
+{
+  await canvasNode('ParkingLot').hover();
+  const a = await canvasNode('ParkingLot').locator('.react-flow__handle-right').boundingBox();
+  const b = await canvasNode('Floor').locator('.react-flow__handle-left').boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 4, b.y + 4, { steps: 12 });
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 });
+  await page.mouse.up();
+}
+await page.locator('.react-flow__edge').first().waitFor();
+await page.getByTitle(/^FR-1:/).dragTo(canvasNode('Floor'));
+await canvasNode('Floor').getByText('FR-1').waitFor();
+await page.getByRole('tab', { name: /Class list/ }).click();
+await page.getByRole('button', { name: 'Add', exact: true }).waitFor();
 // Wait for autosave to settle (debounce + request), not just for any "Saved" label.
 await page.waitForTimeout(1200);
 await page.waitForFunction(() => !/Unsaved changes|Saving…/.test(document.body.innerText), null, { timeout: 8000 });
@@ -122,11 +136,11 @@ for (const [tab, name] of [
   ['Traceability', '06-workspace-traceability'],
   ['Patterns', '07-workspace-patterns'],
   ['Trade-offs', '08-workspace-reasoning'],
-  ['Diagram', '09-workspace-diagram'],
+  ['Mermaid', '09-workspace-diagram'],
 ]) {
   // (each tab is audited below)
   await page.getByRole('tab', { name: new RegExp(tab) }).click();
-  if (tab === 'Diagram') await page.locator('svg[id^="mmd-"]').first().waitFor({ timeout: 15000 });
+  if (tab === 'Mermaid') await page.locator('svg[id^="mmd-"]').first().waitFor({ timeout: 15000 });
   await page.waitForTimeout(300);
   await shot(page, name, false);
   await audit(page, `workspace ${tab}`);
@@ -135,6 +149,12 @@ await page.getByRole('tab', { name: 'Hints' }).click();
 await page.getByRole('button', { name: 'Reveal hint' }).click();
 await page.getByText('List the nouns').waitFor();
 await shot(page, '10-workspace-hints', false);
+await page.getByRole('tab', { name: /^Diagram/ }).click();
+await page.locator('.react-flow__node').nth(10).waitFor();
+await page.getByTitle('Arrange automatically').click();
+await page.waitForTimeout(1200);
+await shot(page, '10b-canvas-full', false);
+await audit(page, 'canvas with design');
 
 step('Submit v1');
 await page.getByRole('button', { name: 'Submit for review' }).click();
@@ -155,6 +175,9 @@ await page.getByText(/Reviewing version 1/).waitFor();
 await shot(page, '12-evaluating', false);
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
 await page.waitForTimeout(800);
+await page.getByText('Your diagram, annotated').scrollIntoViewIfNeeded();
+await page.locator('.react-flow__node').first().waitFor();
+await page.locator('.react-flow__edge').first().waitFor({ timeout: 5000 }); // the annotated diagram must draw relationships
 await shot(page, '13-feedback-v1');
 await audit(page, 'feedback');
 const v1 = page.url().split('/submissions/')[1];
@@ -183,7 +206,7 @@ await page.evaluate(
   [attemptId, parkingDesign({ improved: true })],
 );
 await page.reload();
-await page.getByRole('button', { name: /DisplayBoard/ }).waitFor();
+await page.locator('.react-flow__node', { hasText: 'DisplayBoard' }).waitFor();
 await page.getByRole('button', { name: 'Submit for review' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Submit', exact: true }).click();
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
@@ -223,6 +246,11 @@ await dark.goto(`${BASE}/submissions/${v1}`);
 await dark.getByText('Rubric breakdown').waitFor();
 await shot(dark, '19-dark-feedback');
 await audit(dark, 'dark feedback');
+await dark.goto(`${BASE}/attempts/${attemptId}`);
+await dark.locator('.react-flow__node').first().waitFor();
+await dark.waitForTimeout(800);
+await shot(dark, '20b-dark-canvas', false);
+await audit(dark, 'dark canvas');
 await dark.goto(`${BASE}/attempts/${attemptId}?tab=classes`);
 await dark.getByRole('button', { name: /ParkingLot/ }).first().waitFor();
 await shot(dark, '20-dark-workspace', false);

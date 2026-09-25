@@ -108,12 +108,19 @@ export type SubmissionFormat = (typeof SUBMISSION_FORMATS)[number];
  * relationships come from the diagram while the written sections
  * (traceability, patterns, trade-offs, extension) come from `design`.
  */
+/** Where each class box sits on the canvas, keyed by entity id. Presentation only: never evaluated. */
+export const layoutSchema = z
+  .record(z.string().max(64), z.object({ x: z.number().finite(), y: z.number().finite() }))
+  .refine((l) => Object.keys(l).length <= LIMITS.maxEntities * 2, 'Too many layout entries');
+export type DiagramLayout = z.infer<typeof layoutSchema>;
+
 export const draftSchema = z.discriminatedUnion('format', [
-  z.object({ format: z.literal('structured'), design: designModelSchema }),
+  z.object({ format: z.literal('structured'), design: designModelSchema, layout: layoutSchema.optional() }),
   z.object({
     format: z.literal('mermaid'),
     design: designModelSchema,
     mermaid: z.string().max(LIMITS.maxLongText * 5),
+    layout: layoutSchema.optional(),
   }),
 ]);
 export type Draft = z.infer<typeof draftSchema>;

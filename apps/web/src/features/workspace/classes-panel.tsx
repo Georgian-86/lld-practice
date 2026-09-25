@@ -136,7 +136,7 @@ function usageOf(design: DesignModel, name: string) {
   };
 }
 
-function EntityEditor({
+export function EntityEditor({
   entity,
   dispatch,
   autoFocusName,
@@ -145,6 +145,7 @@ function EntityEditor({
   usage,
   onDelete,
   onDuplicate,
+  compact = false,
 }: {
   entity: Entity;
   dispatch: Dispatch<DraftAction>;
@@ -154,6 +155,8 @@ function EntityEditor({
   usage: { relationships: number; requirements: number };
   onDelete: () => void;
   onDuplicate: () => void;
+  /** Single-column layout for narrow side panels (canvas inspector). */
+  compact?: boolean;
 }) {
   const nameId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
@@ -168,9 +171,9 @@ function EntityEditor({
   const invalidName = entity.name.trim() !== '' && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entity.name.trim());
 
   return (
-    <div className="scrollbar-thin min-h-0 overflow-y-auto p-5">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
+    <div className={cn('scrollbar-thin min-h-0 overflow-y-auto', compact ? 'p-4' : 'p-5')}>
+      <div className={cn('mx-auto space-y-5', compact ? 'max-w-none' : 'max-w-2xl')}>
+        <div className={cn('grid grid-cols-1 gap-4', !compact && 'sm:grid-cols-[1fr_auto]')}>
           <div>
             <Label htmlFor={nameId}>Name</Label>
             <input
@@ -223,7 +226,7 @@ function EntityEditor({
               : 'What is this class responsible for? One per line, e.g.\nTracks which spots on this floor are free'
           }
         />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className={cn('grid grid-cols-1 gap-4', !compact && 'lg:grid-cols-2')}>
           <LinesField
             label={entity.kind === 'enum' ? 'Values' : 'Attributes'}
             value={entity.attributes}

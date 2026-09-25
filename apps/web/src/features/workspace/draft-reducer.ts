@@ -3,7 +3,7 @@ import { nameKey } from '@blueprint/shared';
 import { newId } from '@/lib/format';
 
 export type DraftAction =
-  | { type: 'entity/add'; id: string; name?: string; kind?: EntityKind }
+  | { type: 'entity/add'; id: string; name?: string; kind?: EntityKind; position?: { x: number; y: number } }
   | { type: 'entity/update'; id: string; patch: Partial<Omit<Entity, 'id' | 'name'>> }
   | { type: 'entity/rename'; id: string; name: string }
   | { type: 'entity/remove'; id: string }
@@ -16,7 +16,8 @@ export type DraftAction =
   | { type: 'pattern/remove'; id: string }
   | { type: 'text/set'; field: 'extensionAnswer' | 'notes'; value: string }
   | { type: 'tradeoffs/set'; value: string[] }
-  | { type: 'diagram/replace'; entities: Entity[]; relationships: Relationship[] };
+  | { type: 'diagram/replace'; entities: Entity[]; relationships: Relationship[] }
+  | { type: 'layout/set'; positions: Record<string, { x: number; y: number }>; replace?: boolean };
 
 function withDesign(draft: Draft, update: (design: DesignModel) => DesignModel): Draft {
   return { ...draft, design: update(draft.design) };
@@ -27,14 +28,16 @@ const replaceName = (names: string[], from: string, to: string) =>
 
 export function draftReducer(draft: Draft, action: DraftAction): Draft {
   switch (action.type) {
-    case 'entity/add':
-      return withDesign(draft, (d) => ({
+    case 'entity/add': {
+      const next = withDesign(draft, (d) => ({
         ...d,
         entities: [
           ...d.entities,
           { id: action.id, name: action.name ?? '', kind: action.kind ?? 'class', responsibilities: [], attributes: [], methods: [] },
         ],
       }));
+      return action.position ? { ...next, layout: { ...draft.layout, [action.id]: action.position } } : next;
+    }
 
     case 'entity/update':
       return withDesign(draft, (d) => ({
@@ -73,8 +76,9 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
         };
       });
 
-    case 'entity/remove':
-      return withDesign(draft, (d) => {
+    case 'entity/remove': {
+      const { [action.id]: _removed, ...layout } = draft.layout ?? {};
+      const next = withDesign(draft, (d) => {
         const target = d.entities.find((e) => e.id === action.id);
         if (!target) return d;
         const entities = d.entities.filter((e) => e.id !== action.id);
@@ -91,6 +95,8 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
           patterns: d.patterns.map((p) => ({ ...p, appliedTo: p.appliedTo.filter((n) => !gone(n)) })),
         };
       });
+      return draft.layout ? { ...next, layout } : next;
+    }
 
     case 'relationship/add':
       return withDesign(draft, (d) => ({ ...d, relationships: [...d.relationships, action.relationship] }));
@@ -133,8 +139,12 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
     case 'tradeoffs/set':
       return withDesign(draft, (d) => ({ ...d, tradeOffs: action.value }));
 
-    case 'diagram/replace':
-      return withDesign(draft, (d) => {
+    case 'layout/set':
+      return { ...draft, layout: action.replace ? action.positions : { ...draft.layout, ...action.positions } };
+
+    case 'diagram/replace': {
+      // New ids → old positions no longer apply; the canvas auto-lays out the import.
+      const next = withDesign(draft, (d) => {
         // Keep written responsibilities for classes that survive the import.
         const previous = new Map(d.entities.map((e) => [nameKey(e.name), e]));
         const entities = action.entities.map((e) => {
@@ -148,6 +158,8 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
         const relationships = action.relationships.map((r) => ({ ...r, id: newId('r') }));
         return { ...d, entities, relationships };
       });
+      return { ...next, layout: {} };
+    }
   }
 }
 

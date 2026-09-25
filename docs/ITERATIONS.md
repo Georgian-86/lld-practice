@@ -112,3 +112,52 @@ criterion (2). Add an axe-core audit to the e2e run and fix what it finds (3).
 ### Remaining known limitations
 Documented in the README: anonymous per-browser identity, a single SQLite node,
 heuristic offline reviewer quality, four problems, and an editor designed for desktop.
+
+---
+
+## Iteration 4: a real diagramming workspace, and a real model
+
+**Feedback from the user:** the workspace felt like filling in a questionnaire;
+it should be a real design tool, distinct from what already exists. A Groq key
+was provided for real AI review.
+
+**Done:**
+- **UML canvas as the primary workspace** (React Flow + dagre):
+  - class boxes with a stereotype, attributes and methods;
+  - drag from a class's edge to another class to create a relationship, typed
+    by a "Connect as" picker;
+  - correct UML notation: hollow triangle for extends/implements (dashed for
+    implements), filled or hollow diamond for owns/has, and open arrow for
+    uses/depends (dashed for depends);
+  - floating edges that fan out when parallel;
+  - auto-layout with parents above children and wholes above parts, and new
+    classes placed in the nearest free spot;
+  - zoom, minimap, and <kbd>Delete</kbd> to remove.
+- **Requirements as draggable chips:** drop `FR-3` onto the class that owns it,
+  or select a class and click the chip (the keyboard-accessible path).
+  Classes show the requirement tags they own.
+- **Live design checks while drawing:** a new `/api/lint` endpoint runs the same
+  15 rules that score submissions, in milliseconds, with no AI and nothing
+  stored. Classes get issue badges, and the inspector lists issues (click one to
+  jump to its class).
+- **Inspector:** edit the selected class (name, kind, responsibilities, members,
+  requirements it owns) or relationship (direction, type, label, multiplicity).
+- **Annotated diagram on the feedback report:** the submitted diagram is shown
+  read-only, with findings badged on the classes they concern.
+- Deep links from findings now open the canvas with the class selected and
+  centred.
+- **Groq provider** (`GROQ_API_KEY`, OpenAI-compatible JSON mode) behind the same
+  `LlmClient` port, so the timeout, retry and cache decorators and the output
+  guardrails apply unchanged. Unit-tested against mocked HTTP.
+- The e2e run now draws on the canvas (adds classes, connects them, drops a
+  requirement), asserts the annotated diagram draws its edges, and fails on
+  React Flow warnings. The a11y audit covers the canvas in both themes.
+
+### Critique / backlog
+1. The Groq integration could not be exercised live from this environment:
+   outbound access to `api.groq.com` is blocked by the network policy.
+   It is verified with mocked responses only.
+2. Canvas editing is desktop-first. On phones it is view-and-select only; the
+   inspector is hidden below `md`.
+3. No undo/redo on the canvas yet. It would be cheap to add over the reducer
+   (a history stack of drafts).

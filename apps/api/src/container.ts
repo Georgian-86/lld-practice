@@ -1,10 +1,12 @@
 import { PracticeService } from './application/practice-service';
 import { EvaluationService } from './application/evaluation-service';
+import { LintService } from './application/lint-service';
 import { ProgressService } from './application/progress-service';
 import type { AppConfig } from './config';
 import type { Clock, IdGenerator, ProblemCatalog } from './domain/ports';
 import type { Evaluator } from './evaluation/evaluator';
 import { AnthropicLlmClient } from './evaluation/llm/anthropic-client';
+import { GroqLlmClient } from './evaluation/llm/groq-client';
 import { CachingLlmClient, RetryingLlmClient, TimeoutLlmClient } from './evaluation/llm/decorators';
 import type { LlmClient } from './evaluation/llm/llm-client';
 import { LlmDesignReviewer } from './evaluation/llm/llm-reviewer';
@@ -73,6 +75,7 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
     pollAfterMs: 1000,
   });
   const progress = new ProgressService({ problems, attempts, submissions, evaluations });
+  const lint = new LintService(problems, defaultRules());
   const worker = new EvaluationWorker(queue, evaluationService, clock, config.worker, logger);
 
   return {
@@ -80,6 +83,7 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
     problems,
     practice,
     progress,
+    lint,
     evaluationService,
     pipeline,
     worker,
@@ -91,10 +95,13 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
 function buildLlmClient(config: AppConfig): LlmClient | null {
   const { llm } = config;
   if (llm.provider === 'none') return null;
+  if (llm.provider === 'groq' && !llm.apiKey) throw new Error('LLM_PROVIDER=groq requires GROQ_API_KEY.');
   const base: LlmClient =
     llm.provider === 'anthropic'
       ? new AnthropicLlmClient({ apiKey: llm.apiKey, model: llm.model, effort: llm.effort })
-      : new SimulatedLlmClient({ latencyMs: llm.simulatedLatencyMs, failureRate: llm.simulatedFailureRate });
+      : llm.provider === 'groq'
+        ? new GroqLlmClient({ apiKey: llm.apiKey!, model: llm.model })
+        : new SimulatedLlmClient({ latencyMs: llm.simulatedLatencyMs, failureRate: llm.simulatedFailureRate });
   // Order matters: cache hits skip everything; each retry gets its own timeout.
   return new CachingLlmClient(
     new RetryingLlmClient(new TimeoutLlmClient(base, llm.timeoutMs), { maxRetries: llm.maxRetries, baseDelayMs: 1000 }),

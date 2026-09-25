@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DifficultyBadge } from '@/features/problems/difficulty';
 import { readinessChecks, type Check } from '@/features/workspace/checklist';
 import { ClassesPanel } from '@/features/workspace/classes-panel';
+import { DesignCanvas } from '@/features/workspace/canvas/design-canvas';
+import { useLiveChecks } from '@/features/workspace/canvas/use-live-checks';
 import { DiagramPanel } from '@/features/workspace/diagram-panel';
 import { draftReducer, isMapped } from '@/features/workspace/draft-reducer';
 import { PatternsPanel } from '@/features/workspace/patterns-panel';
@@ -28,7 +30,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { cn } from '@/lib/cn';
 import { timeAgo } from '@/lib/format';
 
-const TABS = ['classes', 'relationships', 'traceability', 'patterns', 'reasoning', 'diagram'] as const;
+const TABS = ['canvas', 'classes', 'relationships', 'traceability', 'patterns', 'reasoning', 'mermaid'] as const;
 type Tab = (typeof TABS)[number];
 
 export function WorkspacePage() {
@@ -53,7 +55,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const tab: Tab = TABS.includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : 'classes';
+  const tab: Tab = TABS.includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : 'canvas';
   // `focus` deep-links from feedback to a class or requirement; it is dropped on the next tab change.
   const focus = params.get('focus');
   const setTab = (next: string) =>
@@ -69,6 +71,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   const [draft, dispatch] = useReducer(draftReducer, attempt.draft);
   const design = draft.design;
   const autosave = useAutosave(attempt.id, draft);
+  const liveChecks = useLiveChecks(problem.id, design, tab === 'canvas');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
 
@@ -122,12 +125,13 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   const named = design.entities.filter((e) => e.name.trim()).length;
   const mapped = problem.functionalRequirements.filter((r) => isMapped(design, r.id)).length;
   const counts: Record<Tab, string | null> = {
-    classes: named ? String(named) : null,
+    canvas: named ? String(named) : null,
+    classes: null,
     relationships: design.relationships.length ? String(design.relationships.length) : null,
     traceability: `${mapped}/${problem.functionalRequirements.length}`,
     patterns: design.patterns.length ? String(design.patterns.length) : null,
     reasoning: null,
-    diagram: null,
+    mermaid: null,
   };
 
   return (
@@ -146,7 +150,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           <span className="hidden text-xs text-muted sm:inline">· Draft v{(latest?.version ?? 0) + 1}</span>
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <Button size="sm" variant="ghost" className="lg:hidden" icon={<BookOpen className="size-4" />} onClick={() => setBriefOpen(true)} aria-label="Brief & hints">
+          <Button size="sm" variant="ghost" className={cn(tab !== 'canvas' && 'lg:hidden')} icon={<BookOpen className="size-4" />} onClick={() => setBriefOpen(true)} aria-label="Brief & hints">
             <span className="hidden sm:inline">Brief & hints</span>
           </Button>
           <SaveIndicator state={autosave.state} savedAt={autosave.savedAt} onRetry={() => void autosave.saveNow()} />
@@ -183,8 +187,8 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(300px,360px)_1fr]">
-        <aside className="hidden min-h-0 flex-col border-r border-border bg-surface lg:flex" aria-label="Problem">
+      <div className={cn('grid min-h-0 flex-1 grid-cols-1', tab !== 'canvas' && 'lg:grid-cols-[minmax(300px,360px)_1fr]')}>
+        <aside className={cn('hidden min-h-0 flex-col border-r border-border bg-surface', tab !== 'canvas' && 'lg:flex')} aria-label="Problem">
           <WorkspaceSidebar problem={problem} attempt={attempt} design={design} />
         </aside>
 
@@ -197,6 +201,17 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
               </TabsTrigger>
             ))}
           </TabsList>
+          <TabsContent value="canvas" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+            <DesignCanvas
+              problem={problem}
+              design={design}
+              layout={draft.layout}
+              dispatch={dispatch}
+              findings={liveChecks.findings}
+              checking={liveChecks.checking}
+              focus={tab === 'canvas' ? focus : null}
+            />
+          </TabsContent>
           <TabsContent value="classes" className="flex min-h-0 flex-1 flex-col bg-surface outline-none data-[state=inactive]:hidden">
             <ClassesPanel design={design} dispatch={dispatch} focus={tab === 'classes' ? focus : null} />
           </TabsContent>
@@ -212,7 +227,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           <TabsContent value="reasoning" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
             <ReasoningPanel problem={problem} design={design} dispatch={dispatch} />
           </TabsContent>
-          <TabsContent value="diagram" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
+          <TabsContent value="mermaid" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
             <DiagramPanel design={design} dispatch={dispatch} />
           </TabsContent>
         </Tabs>
@@ -239,12 +254,13 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
 }
 
 const TAB_LABELS: Record<Tab, string> = {
-  classes: 'Classes',
+  canvas: 'Diagram',
+  classes: 'Class list',
   relationships: 'Relationships',
   traceability: 'Traceability',
   patterns: 'Patterns',
   reasoning: 'Trade-offs & extension',
-  diagram: 'Diagram',
+  mermaid: 'Mermaid',
 };
 
 function SaveIndicator({ state, savedAt, onRetry }: { state: SaveState; savedAt: Date | null; onRetry: () => void }) {

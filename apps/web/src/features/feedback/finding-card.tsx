@@ -48,7 +48,7 @@ export function SourceBadge({ source, simulated }: { source: Finding['source']; 
 /** Where in the editor a piece of evidence can be fixed. */
 export function evidenceHref(attemptId: string, item: { requirementId?: string; entity?: string }): string {
   const params = new URLSearchParams(
-    item.requirementId ? { tab: 'traceability', focus: item.requirementId } : { tab: 'classes', focus: item.entity ?? '' },
+    item.requirementId ? { tab: 'traceability', focus: item.requirementId } : { tab: 'canvas', focus: item.entity ?? '' },
   );
   return `/attempts/${attemptId}?${params.toString()}`;
 }
@@ -93,7 +93,7 @@ export function FindingCard({
           {evidence.length > 0 && <span className="text-xs text-subtle">·</span>}
           {evidence.slice(0, 6).map((e) =>
             attemptId ? (
-              <Tooltip key={e.key} content={e.requirementId ? `Open ${e.key} in the Traceability tab` : `Open ${e.key} in the editor`}>
+              <Tooltip key={e.key} content={e.requirementId ? `Open ${e.key} in the Traceability tab` : `Show ${e.key} on your diagram`}>
                 <Link
                   to={evidenceHref(attemptId, e)}
                   className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-2 underline decoration-border-strong decoration-dotted underline-offset-2 transition hover:bg-primary-soft hover:text-primary-soft-fg hover:decoration-primary"

@@ -12,7 +12,8 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
+      # Set ONE of these in the dashboard (never commit keys). Without either, the offline reviewer is used.
       - key: ANTHROPIC_API_KEY
-        sync: false # set in the dashboard; without it the offline reviewer is used
-      - key: LLM_MODEL
-        value: claude-opus-5
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

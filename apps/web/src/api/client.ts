@@ -2,7 +2,9 @@ import type {
   ApiErrorBody,
   AttemptDTO,
   ComparisonDTO,
+  DesignModel,
   Draft,
+  Finding,
   HintDTO,
   ProblemDTO,
   ProblemSummaryDTO,
@@ -86,6 +88,8 @@ export const api = {
     }),
   submission: (id: string) => request<SubmissionDTO>(`/submissions/${encodeURIComponent(id)}`),
   retry: (id: string) => request<SubmissionDTO>(`/submissions/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
+  lint: (problemId: string, design: DesignModel) =>
+    request<{ findings: Finding[] }>('/lint', { method: 'POST', body: json({ problemId, design }) }),
   compare: (base: string, target: string) =>
     request<ComparisonDTO>(`/compare?base=${encodeURIComponent(base)}&target=${encodeURIComponent(target)}`),
 };

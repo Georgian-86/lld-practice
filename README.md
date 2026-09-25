@@ -5,9 +5,11 @@ where a design can improve:
 
 **choose a problem → design → submit → get feedback → review → try again.**
 
-A design is submitted as structured data: classes and responsibilities,
-relationships, requirement traceability, patterns, trade-offs, and an
-extension-scenario answer. It is evaluated in the background by **15 deterministic
+Learners **draw** their design on a UML canvas: classes and interfaces with
+their members, relationships drawn by dragging between classes (with proper UML
+notation), and requirements dragged onto the class that owns them. **Live design
+checks run as they draw** and badge the classes they concern. Patterns,
+trade-offs and an extension-scenario answer complete the submission. It is evaluated in the background by **15 deterministic
 design rules** plus an **AI reviewer grounded on those rules** (Claude, or an
 offline simulator when no API key is set). The learner gets a rubric score and
 prioritised, explainable findings that link back into the editor. Every version
@@ -31,12 +33,15 @@ npm run dev          # API on :3001 + web on :5173 (proxying /api)
 ```
 
 Open http://localhost:5173. **No API key is needed.** Without one, the AI
-reviewer is an offline simulator, clearly labelled *AI (sim)* in the UI. To use
-Claude:
+reviewer is an offline simulator, clearly labelled *AI (sim)* in the UI. To use a
+real model, set one key:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... npm run dev
+GROQ_API_KEY=gsk_... npm run dev          # Groq (default model llama-3.3-70b-versatile)
+ANTHROPIC_API_KEY=sk-ant-... npm run dev  # Claude (default model claude-opus-5)
 ```
+
+Keys are read from the environment only. Never commit them.
 
 ### Production (single process)
 
@@ -93,9 +98,10 @@ npm run e2e          # real-browser walkthrough: needs the app running (BASE_URL
 |---|---|---|
 | `PORT` | `3001` | HTTP port |
 | `DATABASE_PATH` | `./data/blueprint.db` | SQLite file (attempts, submissions, reports, job queue) |
-| `LLM_PROVIDER` | `auto` | `auto` (Claude if a key is set, else simulator), `anthropic`, `simulated`, `none` (rules only) |
+| `LLM_PROVIDER` | `auto` | `auto` (Claude if its key is set, else Groq if its key is set, else simulator), `anthropic`, `groq`, `simulated`, `none` (rules only) |
 | `ANTHROPIC_API_KEY` | – | Enables the Claude reviewer |
-| `LLM_MODEL` | `claude-opus-5` | Model id |
+| `GROQ_API_KEY` | – | Enables the Groq reviewer |
+| `LLM_MODEL` | per provider | `claude-opus-5` (Anthropic) or `llama-3.3-70b-versatile` (Groq) |
 | `LLM_EFFORT` | `medium` | `low` / `medium` / `high` |
 | `LLM_TIMEOUT_MS` / `LLM_MAX_RETRIES` | `90000` / `2` | Per-call timeout and retries (retryable errors only) |
 | `LLM_SIMULATED_LATENCY_MS` | `2500` | Makes the offline reviewer feel real in demos |

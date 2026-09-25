@@ -30,7 +30,7 @@ export class RequirementCoverageRule implements DesignRule {
             key: requirement.id,
             title: `${requirement.id} has no owner`,
             message: `No class is mapped to "${requirement.text}" If nobody owns a requirement, it usually ends up scattered across classes or forgotten.`,
-            suggestion: `Decide which class is responsible for ${requirement.id} and map it in the Traceability tab. If none fits, that is a sign a class is missing.`,
+            suggestion: `Decide which class is responsible for ${requirement.id} and drag the ${requirement.id} chip onto it on the diagram. If none fits, that is a sign a class is missing.`,
             evidence: { requirementIds: [requirement.id] },
           }),
         );
@@ -44,7 +44,7 @@ export class RequirementCoverageRule implements DesignRule {
             key: `${requirement.id}-unknown`,
             title: `${requirement.id} is mapped to classes that don't exist`,
             message: `${requirement.id} points at ${listToSentence(unknown)}, which ${unknown.length === 1 ? 'is' : 'are'} not defined in your design.`,
-            suggestion: 'Add the missing class or fix the name in the Traceability tab.',
+            suggestion: 'Add the missing class, or re-assign the requirement to a class that exists.',
             evidence: { requirementIds: [requirement.id] },
           }),
         );
@@ -77,7 +77,7 @@ export class RequirementCoverageRule implements DesignRule {
             key: requirement.id,
             title: `Show where ${requirement.id} is handled`,
             message: `"${requirement.text}" is not mapped to any class. Non-functional requirements often decide the shape of a design, so interviewers look for them explicitly.`,
-            suggestion: `Map ${requirement.id} to the class (or abstraction) that guarantees it.`,
+            suggestion: `Drag ${requirement.id} onto the class (or abstraction) that guarantees it.`,
             evidence: { requirementIds: [requirement.id] },
           }),
         );

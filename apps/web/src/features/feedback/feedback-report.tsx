@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import type { EvaluationReport, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
+import type { EvaluationReport, ProblemDTO, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
 import { CRITERIA, GRADE_LABELS } from '@blueprint/shared';
-import { ArrowRight, CheckCircle2, ChevronDown, Compass, GitCompareArrows, ListChecks, Sparkles, Wrench } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Sparkles, Wrench } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api, queryKeys } from '@/api/client';
@@ -12,6 +12,7 @@ import { Meter, ScoreRing, scoreTone } from '@/components/ui/score';
 import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
+import { DesignCanvas } from '@/features/workspace/canvas/design-canvas';
 import { FindingCard } from './finding-card';
 
 type Filter = 'improve' | 'strengths' | 'all';
@@ -24,9 +25,12 @@ export function FeedbackReport({
   submission,
   report,
   previous,
+  problem,
 }: {
   submission: SubmissionDTO;
   report: EvaluationReport;
+  /** Needed to draw the annotated diagram; omitted while the problem is loading. */
+  problem?: ProblemDTO;
   /** The latest earlier version with feedback, if any. */
   previous?: SubmissionSummaryDTO;
 }) {
@@ -94,6 +98,19 @@ export function FeedbackReport({
           </ul>
         </Card>
       </div>
+
+      {problem && submission.draft.design.entities.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardHeader
+            title="Your diagram, annotated"
+            icon={<Network className="size-4" />}
+            description="Badges show where the feedback applies. Select a class to see what was said about it."
+          />
+          <div className="flex h-[520px]">
+            <DesignCanvas problem={problem} design={submission.draft.design} layout={submission.draft.layout} findings={report.findings} />
+          </div>
+        </Card>
+      )}
 
       <Findings report={report} simulated={simulated} attemptId={submission.attemptId} />
 

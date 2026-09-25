@@ -59,4 +59,23 @@ describe('draftReducer', () => {
     });
     expect(d.design.entities[0]!.responsibilities).toEqual(['runs the lot']);
   });
+
+  it('stores a position when a class is added on the canvas, and forgets it when the class is deleted', () => {
+    let d: Draft = { format: 'structured', design: emptyDesign() };
+    d = draftReducer(d, { type: 'entity/add', id: 'a', name: 'Lot', position: { x: 10, y: 20 } });
+    expect(d.layout).toEqual({ a: { x: 10, y: 20 } });
+    d = draftReducer(d, { type: 'layout/set', positions: { a: { x: 50, y: 60 } } });
+    expect(d.layout?.a).toEqual({ x: 50, y: 60 });
+    d = draftReducer(d, { type: 'entity/remove', id: 'a' });
+    expect(d.layout).toEqual({});
+  });
+
+  it('merges layout updates by default and replaces them on auto-layout', () => {
+    let d: Draft = { format: 'structured', design: emptyDesign(), layout: { a: { x: 0, y: 0 } } };
+    d = draftReducer(d, { type: 'layout/set', positions: { b: { x: 1, y: 1 } } });
+    expect(Object.keys(d.layout!)).toEqual(['a', 'b']);
+    d = draftReducer(d, { type: 'layout/set', positions: { c: { x: 2, y: 2 } }, replace: true });
+    expect(Object.keys(d.layout!)).toEqual(['c']);
+  });
 });
+
