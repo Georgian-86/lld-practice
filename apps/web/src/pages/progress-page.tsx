@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState, Skeleton } from '@/components/ui/misc';
 import { ScorePill } from '@/components/ui/score';
+import { Achievements } from '@/features/progress/achievements';
 import { CriterionBars, ScoreTrend } from '@/features/progress/charts';
 import { SubmissionStatusBadge } from '@/features/workspace/sidebar';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -23,9 +24,9 @@ export function ProgressPage() {
   const problems = useQuery({ queryKey: queryKeys.problems, queryFn: api.problems });
   const recommendation = recommendNext(data, problems.data);
 
+  const [problemFilter, setProblemFilter] = useState('all');
   if (error) return <ErrorView error={error} onRetry={() => void refetch()} />;
 
-  const [problemFilter, setProblemFilter] = useState('all');
   const practicedProblems = [...new Map((data?.recent ?? []).map((s) => [s.problemId, s.problemTitle])).entries()];
   const scored = (data?.recent ?? [])
     .filter((s) => s.overallScore !== null && (problemFilter === 'all' || s.problemId === problemFilter))
@@ -152,6 +153,8 @@ export function ProgressPage() {
               </div>
             </Card>
           </div>
+
+          {data && data.achievements.length > 0 && <Achievements achievements={data.achievements} />}
 
           <Card className="mt-6 overflow-hidden">
             <CardHeader title="Recent submissions" />

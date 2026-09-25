@@ -196,5 +196,33 @@
     "relationships": 15,
     "extensibility": 20,
     "tradeoffs": 10
-  }
+  },
+  "curveballs": [
+    {
+      "id": "card-maintenance",
+      "title": "Cards and maintenance",
+      "prompt": "The company adds card payments and a 'maintenance' state in which the machine refuses all customer actions. Which classes change, which are added, and which stay untouched?",
+      "variationPoints": [
+        "state",
+        "payment"
+      ]
+    },
+    {
+      "id": "exact-change",
+      "title": "Exact change only",
+      "prompt": "When the coin stock runs low, the machine switches to 'exact change only' and refuses payments it cannot make change for.",
+      "variationPoints": [
+        "change",
+        "state"
+      ]
+    },
+    {
+      "id": "qr",
+      "title": "QR code payments",
+      "prompt": "Customers can scan a QR code and pay from their phone; the machine receives a payment confirmation asynchronously.",
+      "variationPoints": [
+        "payment"
+      ]
+    }
+  ]
 }

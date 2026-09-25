@@ -35,6 +35,7 @@ describe('diffDesigns', () => {
     const d = diffDesigns(v1, v2);
     expect(status(d)).toEqual({ ParkingLot: 'unchanged', PricingStrategy: 'unchanged', HourlyPricing: 'unchanged', EvPricing: 'added' });
     expect(d.verdict).toBe('extended');
+    expect(d.seams).toEqual([{ added: 'EvPricing', into: 'PricingStrategy' }]);
   });
 
   it('marks a class modified when its members or outgoing relationships change', () => {

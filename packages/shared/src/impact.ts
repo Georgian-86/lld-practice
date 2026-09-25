@@ -18,6 +18,8 @@ export interface DesignImpact {
   entities: EntityImpact[];
   counts: Record<ImpactStatus, number>;
   verdict: ImpactVerdict;
+  /** New classes that extend or implement an abstraction that already existed: the seams that paid off. */
+  seams: { added: string; into: string }[];
 }
 
 type Design = Pick<DesignModel, 'entities' | 'relationships'>;
@@ -120,12 +122,21 @@ export function diffDesigns(before: Design, after: Design): DesignImpact {
     if (!used.has(e.id)) result.push({ id: e.id, name: e.name.trim(), status: 'removed', changes: [] });
   }
 
+  const seams: DesignImpact['seams'] = [];
+  for (const e of afterEntities) {
+    if (match.has(e.id)) continue;
+    for (const key of afterOut.get(afterIdentity.get(nameKey(e.name))!) ?? []) {
+      const [type, to] = key.split('>') as [string, string];
+      if ((type === 'inheritance' || type === 'implementation') && !to.startsWith('new:')) seams.push({ added: e.name.trim(), into: displayName.get(to) ?? to });
+    }
+  }
+
   const counts: Record<ImpactStatus, number> = { added: 0, modified: 0, unchanged: 0, removed: 0 };
   for (const r of result) counts[r.status]++;
   const touched = counts.modified + counts.removed;
   const verdict: ImpactVerdict =
     counts.added === 0 && touched === 0 ? 'none' : touched === 0 ? 'extended' : touched <= 2 ? 'contained' : 'rippled';
-  return { entities: result, counts, verdict };
+  return { entities: result, counts, verdict, seams };
 }
 
 export const IMPACT_VERDICT_TEXT: Record<ImpactVerdict, { title: string; body: string }> = {
@@ -143,3 +154,8 @@ export const IMPACT_VERDICT_TEXT: Record<ImpactVerdict, { title: string; body: s
     body: 'Several existing classes had to change. A seam (an interface or a strategy) at the point that varies would let the next change land in new classes instead.',
   },
 };
+
+/** The curveball a challenge refers to (older drafts without an id mean the first one). */
+export function curveballFor<C extends { id: string }>(curveballs: C[], id: string | undefined): C | undefined {
+  return (id && curveballs.find((c) => c.id === id)) || curveballs[0];
+}

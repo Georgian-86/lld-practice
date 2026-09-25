@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
 import { CRITERIA, CRITERION_IDS } from '@blueprint/shared';
-import { ArrowLeft, ArrowRight, Clock, FileText, Plus, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, FileText, Plus, Target, Timer } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { api, queryKeys } from '@/api/client';
 import { PageContainer } from '@/components/app-shell';
@@ -51,7 +51,7 @@ export function ProblemPage() {
         <div className="flex shrink-0 gap-2">
           {latest ? (
             <>
-              <Button onClick={() => start.mutate(p.id)} loading={start.isPending} icon={<Plus className="size-4" />}>
+              <Button onClick={() => start.mutate({ problemId: p.id })} loading={start.isPending} icon={<Plus className="size-4" />}>
                 New attempt
               </Button>
               <Link to={`/attempts/${latest.id}`}>
@@ -61,9 +61,20 @@ export function ProblemPage() {
               </Link>
             </>
           ) : (
-            <Button variant="primary" size="lg" onClick={() => start.mutate(p.id)} loading={start.isPending}>
-              Start attempt <ArrowRight className="size-4" />
-            </Button>
+            <>
+              <Button
+                size="lg"
+                onClick={() => start.mutate({ problemId: p.id, timed: true })}
+                disabled={start.isPending}
+                icon={<Timer className="size-4" />}
+                title={`Starts a ${p.estimatedMinutes}-minute countdown, like a real interview`}
+              >
+                Timed interview
+              </Button>
+              <Button variant="primary" size="lg" onClick={() => start.mutate({ problemId: p.id })} loading={start.isPending}>
+                Start attempt <ArrowRight className="size-4" />
+              </Button>
+            </>
           )}
         </div>
       </div>

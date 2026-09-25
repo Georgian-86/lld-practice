@@ -1,5 +1,6 @@
 import type {
   AttemptDTO,
+  Draft,
   EvaluationReport,
   Problem,
   ProblemDTO,
@@ -27,6 +28,18 @@ export function toSubmissionSummary(submission: Submission, report?: EvaluationR
     submittedAt: s.submittedAt,
     updatedAt: s.updatedAt,
     overallScore: report?.overallScore ?? null,
+    ...submissionContext(s.draft, s.version, s.submittedAt),
+  };
+}
+
+/** What the learner was practising when they submitted: a curveball, the interview timer. */
+export function submissionContext(draft: Draft, version: number, submittedAt: string): Pick<SubmissionSummaryDTO, 'curveballId' | 'timed'> {
+  const challenge = draft.challenge && draft.challenge.fromVersion < version ? draft.challenge : null;
+  const timer = draft.timer;
+  const used = timer ? (Date.parse(submittedAt) - Date.parse(timer.startedAt)) / 60000 : NaN;
+  return {
+    curveballId: challenge ? (challenge.curveballId ?? 'default') : null,
+    timed: timer && Number.isFinite(used) && used >= 0 ? { minutes: timer.minutes, usedMinutes: Math.round(used * 10) / 10 } : null,
   };
 }
 

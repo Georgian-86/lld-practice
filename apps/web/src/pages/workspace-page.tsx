@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
-import { isTerminal } from '@blueprint/shared';
+import { curveballFor, isTerminal } from '@blueprint/shared';
 import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, ChevronRight, CloudOff, Keyboard, Loader2, Send, X, XCircle, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -22,6 +22,7 @@ import { useLiveChecks } from '@/features/workspace/canvas/use-live-checks';
 import { DiagramPanel } from '@/features/workspace/diagram-panel';
 import { isMapped } from '@/features/workspace/draft-reducer';
 import { useDraftHistory } from '@/features/workspace/use-draft-history';
+import { InterviewTimer } from '@/features/workspace/interview-timer';
 import { PatternsPanel } from '@/features/workspace/patterns-panel';
 import { ReasoningPanel } from '@/features/workspace/reasoning-panel';
 import { RelationshipsPanel } from '@/features/workspace/relationships-panel';
@@ -77,26 +78,38 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
 
   // Curveball: accepted from a report (?curveball=<version>), active until a later version is submitted.
   const curveballParam = params.get('curveball');
+  const curveballIdParam = params.get('cb');
+  const timedParam = params.get('timed');
   useEffect(() => {
-    if (!curveballParam) return;
+    if (!curveballParam && !timedParam) return;
     const fromVersion = Number(curveballParam);
-    if (Number.isInteger(fromVersion) && attempt.submissions.some((s) => s.version === fromVersion) && draft.challenge?.fromVersion !== fromVersion) {
-      dispatch({ type: 'challenge/set', challenge: { kind: 'curveball', fromVersion, acceptedAt: new Date().toISOString() }, transient: true });
+    const curveballId = problem.curveballs.find((c) => c.id === curveballIdParam)?.id ?? problem.curveballs[0]!.id;
+    if (
+      curveballParam &&
+      Number.isInteger(fromVersion) &&
+      attempt.submissions.some((s) => s.version === fromVersion) &&
+      (draft.challenge?.fromVersion !== fromVersion || draft.challenge?.curveballId !== curveballId)
+    ) {
+      dispatch({ type: 'challenge/set', challenge: { kind: 'curveball', fromVersion, curveballId, acceptedAt: new Date().toISOString() }, transient: true });
     }
+    if (timedParam && !draft.timer) dispatch({ type: 'timer/set', timer: { startedAt: new Date().toISOString(), minutes: problem.estimatedMinutes }, transient: true });
     setParams(
       (p) => {
         p.delete('curveball');
+        p.delete('cb');
+        p.delete('timed');
         return p;
       },
       { replace: true },
     );
-  }, [curveballParam]);
+  }, [curveballParam, timedParam]);
   const challenge = draft.challenge;
   const curveballBase =
     challenge && !attempt.submissions.some((s) => s.version > challenge.fromVersion)
       ? attempt.submissions.find((s) => s.version === challenge.fromVersion)
       : undefined;
   const impact = useImpact(curveballBase?.id, design);
+  const curveball = challenge ? curveballFor(problem.curveballs, challenge.curveballId) : undefined;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -115,6 +128,8 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
     mutationFn: () => api.submit(attempt.id, draft),
     onSuccess: (submission) => {
       autosave.markSaved(draft);
+      // A timed session ends with its submission.
+      if (draft.timer) dispatch({ type: 'timer/set', timer: undefined, transient: true });
       queryClient.setQueryData(queryKeys.submission(submission.id), submission);
       void queryClient.invalidateQueries({ queryKey: queryKeys.attempt(attempt.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.problems });
@@ -194,6 +209,12 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           <Button size="sm" variant="ghost" className={cn(tab !== 'canvas' && 'lg:hidden')} icon={<BookOpen className="size-4" />} onClick={() => setBriefOpen(true)} aria-label="Brief & hints">
             <span className="hidden sm:inline">Brief & hints</span>
           </Button>
+          <InterviewTimer
+            timer={draft.timer}
+            minutes={problem.estimatedMinutes}
+            onStart={() => dispatch({ type: 'timer/set', timer: { startedAt: new Date().toISOString(), minutes: problem.estimatedMinutes }, transient: true })}
+            onStop={() => dispatch({ type: 'timer/set', timer: undefined, transient: true })}
+          />
           <Button size="icon" variant="ghost" className="hidden md:inline-flex" onClick={() => setShortcutsOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
             <Keyboard className="size-4" />
           </Button>
@@ -224,9 +245,9 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
       {curveballBase && (
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-ai/25 bg-ai-soft px-4 py-2 text-[13px] text-ai-soft-fg sm:px-5" role="status">
           <span className="inline-flex items-center gap-1.5 font-semibold">
-            <Zap className="size-4" /> Curveball
+            <Zap className="size-4" /> Curveball{curveball ? `: ${curveball.title}` : ''}
           </span>
-          <span className="min-w-0 flex-1 basis-80 text-fg-2">{problem.extensionScenario.prompt}</span>
+          <span className="min-w-0 flex-1 basis-80 text-fg-2">{curveball?.prompt}</span>
           {impact && (
             <span className="inline-flex items-center gap-2 text-xs text-muted">
               vs v{curveballBase.version}: <ImpactCounts impact={impact} />

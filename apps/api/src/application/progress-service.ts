@@ -1,6 +1,7 @@
 import type { EvaluationReport, ProblemSummaryDTO, ProgressDTO } from '@blueprint/shared';
 import { CRITERIA, CRITERION_IDS } from '@blueprint/shared';
 import type { AttemptRepository, EvaluationRepository, ProblemCatalog, SubmissionRepository } from '../domain/ports';
+import { computeAchievements } from './achievements';
 import { toSubmissionSummary } from './dto';
 
 /** Read-side queries for the catalogue and the learner's progress dashboard. */
@@ -79,6 +80,11 @@ export class ProgressService {
           name: CRITERIA[criterionId].name,
           average: values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null,
         };
+      }),
+      achievements: computeAchievements({
+        submissions: submissions.map((s) => s.toSnapshot()),
+        reports,
+        problems: this.deps.problems.list(),
       }),
     };
   }

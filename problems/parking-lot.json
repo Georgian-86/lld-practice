@@ -215,5 +215,32 @@
     "relationships": 15,
     "extensibility": 15,
     "tradeoffs": 10
-  }
+  },
+  "curveballs": [
+    {
+      "id": "ev-charging",
+      "title": "EV charging spots",
+      "prompt": "The garage is adding EV charging spots that charge an extra per-kWh fee and can only be used by electric vehicles. What changes in your design, and what stays untouched?",
+      "variationPoints": [
+        "pricing",
+        "allocation"
+      ]
+    },
+    {
+      "id": "upi-wallet",
+      "title": "Pay by UPI or wallet",
+      "prompt": "Finance wants drivers to pay by UPI and by a prepaid wallet, alongside cards. Refunds must go back to the original method.",
+      "variationPoints": [
+        "payment"
+      ]
+    },
+    {
+      "id": "valet",
+      "title": "Valet floor",
+      "prompt": "One floor becomes valet-only: attendants park the car, so spots are assigned by the attendant's rule (fill the far end first), not the nearest free spot.",
+      "variationPoints": [
+        "allocation"
+      ]
+    }
+  ]
 }

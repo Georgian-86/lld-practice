@@ -214,5 +214,33 @@
     "relationships": 15,
     "extensibility": 15,
     "tradeoffs": 10
-  }
+  },
+  "curveballs": [
+    {
+      "id": "ebooks",
+      "title": "E-books and SMS",
+      "prompt": "The library adds e-books with unlimited simultaneous loans but a 7-day licence, plus SMS notifications. What changes in your model?",
+      "variationPoints": [
+        "policy",
+        "notification"
+      ]
+    },
+    {
+      "id": "premium",
+      "title": "Premium members",
+      "prompt": "A paid Premium membership borrows 10 copies for 28 days and pays half fines. Students keep today's rules.",
+      "variationPoints": [
+        "policy",
+        "fine"
+      ]
+    },
+    {
+      "id": "grace",
+      "title": "Grace period and fine cap",
+      "prompt": "Fines now start after a 2-day grace period and are capped at the book's replacement price.",
+      "variationPoints": [
+        "fine"
+      ]
+    }
+  ]
 }
