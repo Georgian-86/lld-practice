@@ -109,6 +109,7 @@ export function SubmissionPage() {
         previous={previous}
         problem={problem.data}
         isLatest={attempt.data?.submissions.at(-1)?.id === submission.id}
+        attemptSubmissions={attempt.data?.submissions}
         onRetry={() => retry.mutate()} retrying={retry.isPending} />
     </PageContainer>
   );
@@ -119,10 +120,12 @@ function Body({
   previous,
   problem,
   isLatest,
+  attemptSubmissions,
   onRetry,
   retrying,
 }: {
   isLatest: boolean;
+  attemptSubmissions?: SubmissionSummaryDTO[];
   submission: SubmissionDTO;
   previous?: SubmissionSummaryDTO;
   problem?: ProblemDTO;
@@ -161,7 +164,7 @@ function Body({
           </Button>
         </div>
       )}
-      <FeedbackReport submission={submission} report={report} previous={previous} problem={problem} isLatest={isLatest} />
+      <FeedbackReport submission={submission} report={report} previous={previous} problem={problem} isLatest={isLatest} attemptSubmissions={attemptSubmissions} />
     </div>
   );
 }

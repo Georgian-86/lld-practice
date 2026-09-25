@@ -226,11 +226,13 @@ await shot(page, '13b-deep-link', false);
 await page.goBack();
 await page.getByText('Rubric breakdown').waitFor();
 
-step('Take the curveball and submit v2');
-await page.getByText('The interviewer’s curveball').scrollIntoViewIfNeeded();
-await page.getByRole('button', { name: 'Take the curveball' }).click();
+step('Pick a curveball from the deck and submit v2');
+await page.getByText('The interviewer’s curveballs').scrollIntoViewIfNeeded();
+await page.getByRole('radio', { name: /Pay by UPI or wallet/ }).click();
+await shot(page, '13a-curveball-deck', false);
+await page.getByRole('button', { name: 'Take this curveball' }).click();
 await page.getByRole('button', { name: 'Submit for review' }).waitFor();
-await page.getByRole('status').filter({ hasText: 'Curveball' }).waitFor();
+await page.getByRole('status').filter({ hasText: 'Pay by UPI or wallet' }).waitFor();
 await page.waitForTimeout(1200);
 await page.waitForFunction(() => !/Unsaved changes|Saving…/.test(document.body.innerText), null, { timeout: 8000 });
 await page.evaluate(
@@ -242,7 +244,7 @@ await page.evaluate(
       body: JSON.stringify({ draft }),
     });
   },
-  [attemptId, { ...parkingDesign({ improved: true }), challenge: { kind: 'curveball', fromVersion: 1, acceptedAt: new Date().toISOString() } }],
+  [attemptId, { ...parkingDesign({ improved: true }), challenge: { kind: 'curveball', fromVersion: 1, curveballId: 'upi-wallet', acceptedAt: new Date().toISOString() } }],
 );
 await page.reload();
 await page.locator('.react-flow__node', { hasText: 'DisplayBoard' }).waitFor();
@@ -255,7 +257,9 @@ await audit(page, 'curveball workspace');
 await page.getByRole('button', { name: 'Submit for review' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Submit', exact: true }).click();
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
-await page.getByText(/Curveball result/).waitFor();
+await page.getByText(/Curveball result · Pay by UPI or wallet/).waitFor();
+// The deck is offered again, with the played curveball marked.
+await page.getByRole('radio', { name: /Pay by UPI or wallet.*Played/ }).waitFor();
 await page.getByText('Change since version 1').waitFor(); // the diagram opens on the impact view
 await page.waitForTimeout(1000);
 await shot(page, '14-feedback-v2');
@@ -277,8 +281,22 @@ step('Progress');
 await page.getByRole('link', { name: 'Progress' }).click();
 await page.getByText('Score over time').waitFor();
 await page.waitForTimeout(500);
+await page.getByText('Achievements', { exact: true }).scrollIntoViewIfNeeded();
+await page.getByLabel('Walked it through: earned').waitFor();
+await page.getByLabel('Iterator: earned').waitFor();
 await shot(page, '16-progress');
 await audit(page, 'progress');
+
+step('Timed interview');
+await page.goto(`${BASE}/problems/library-management`);
+await page.getByRole('button', { name: 'Timed interview' }).click();
+await page.getByRole('timer').waitFor();
+if (!/left in the interview/.test((await page.getByRole('timer').getAttribute('aria-label')) ?? '')) throw new Error('timer should be counting down');
+await page.waitForTimeout(400);
+await shot(page, '16b-timed-workspace', false);
+await audit(page, 'timed workspace');
+await page.getByRole('button', { name: 'Stop the interview timer' }).click();
+await page.getByRole('timer').waitFor({ state: 'detached' });
 
 step('Duplicate submission is refused with a toast');
 await page.goto(`${BASE}/attempts/${attemptId}`);

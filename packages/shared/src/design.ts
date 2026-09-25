@@ -145,18 +145,34 @@ export type DiagramLayout = z.infer<typeof layoutSchema>;
 export const challengeSchema = z.object({
   kind: z.literal('curveball'),
   fromVersion: z.number().int().min(1).max(1000),
+  /** Which of the problem's curveballs; absent on older drafts (means the first). */
+  curveballId: z.string().max(64).optional(),
   acceptedAt: z.string().max(40),
 });
 export type Challenge = z.infer<typeof challengeSchema>;
 
+/** Interview mode: a countdown started by the learner. Cleared after each submission. */
+export const timerSchema = z.object({
+  startedAt: z.string().max(40),
+  minutes: z.number().int().min(5).max(240),
+});
+export type InterviewTimer = z.infer<typeof timerSchema>;
+
 export const draftSchema = z.discriminatedUnion('format', [
-  z.object({ format: z.literal('structured'), design: designModelSchema, layout: layoutSchema.optional(), challenge: challengeSchema.optional() }),
+  z.object({
+    format: z.literal('structured'),
+    design: designModelSchema,
+    layout: layoutSchema.optional(),
+    challenge: challengeSchema.optional(),
+    timer: timerSchema.optional(),
+  }),
   z.object({
     format: z.literal('mermaid'),
     design: designModelSchema,
     mermaid: z.string().max(LIMITS.maxLongText * 5),
     layout: layoutSchema.optional(),
     challenge: challengeSchema.optional(),
+    timer: timerSchema.optional(),
   }),
 ]);
 export type Draft = z.infer<typeof draftSchema>;

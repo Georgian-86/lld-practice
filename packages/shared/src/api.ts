@@ -63,6 +63,10 @@ export interface SubmissionSummaryDTO {
   submittedAt: string;
   updatedAt: string;
   overallScore: number | null;
+  /** Set when this version answered a curveball taken after an earlier version. */
+  curveballId: string | null;
+  /** Set when this version was designed under the interview timer. */
+  timed: { minutes: number; usedMinutes: number } | null;
 }
 
 export interface AttemptDTO {
@@ -105,6 +109,17 @@ export interface ProgressDTO {
   };
   recent: (SubmissionSummaryDTO & { problemTitle: string })[];
   criterionAverages: { criterionId: CriterionId; name: string; average: number | null }[];
+  achievements: AchievementDTO[];
+}
+
+export interface AchievementDTO {
+  id: string;
+  title: string;
+  /** What earns it, phrased as a goal. */
+  description: string;
+  earnedAt: string | null;
+  /** For count-based achievements. */
+  progress?: { current: number; target: number };
 }
 
 export interface ApiErrorBody {

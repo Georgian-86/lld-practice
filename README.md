@@ -14,10 +14,14 @@ is drawn as a numbered arrow, checked against the diagram (can this class
 actually reach that one?), and turned into a sequence diagram. Edits can be
 undone and redone (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>). Patterns,
 trade-offs and an extension-scenario answer complete the submission. After
-feedback, the learner can **take the curveball**, which is the interviewer's
-change request. The next report measures its **blast radius**: which classes were
+feedback, the learner can **take a curveball**: one of three change requests per
+problem, each aimed at a likely point of change. The next report measures its **blast radius**: which classes were
 added, which existing classes had to change (and how), and which stayed untouched.
-It shows this on the diagram and gives an open/closed verdict. It is evaluated in the background by **16 deterministic
+It shows this on the diagram, gives an open/closed verdict, and names the seams that
+paid off (e.g. *CardPayment plugged into your existing PaymentProcessor*). A
+**timed interview mode** counts down the problem's estimated time, and
+**achievements** reward good practice habits (iterating, walking designs through,
+absorbing change through abstractions) as well as scores. It is evaluated in the background by **16 deterministic
 design rules** plus an **AI reviewer grounded on those rules** (Claude, or an
 offline simulator when no API key is set). The learner gets a rubric score and
 prioritised, explainable findings that link back into the editor. Every version

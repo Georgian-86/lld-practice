@@ -82,7 +82,23 @@ export const problemSchema = z.object({
     prompt: z.string().min(1),
     keywords: z.array(z.string()),
   }),
+  /**
+   * The interviewer's follow-up change requests, offered after feedback. The
+   * first one matches the extension scenario. Each names the variation points
+   * it stresses.
+   */
+  curveballs: z
+    .array(
+      z.object({
+        id: z.string().regex(/^[a-z0-9-]+$/),
+        title: z.string().min(1),
+        prompt: z.string().min(1),
+        variationPoints: z.array(z.string()),
+      }),
+    )
+    .min(1),
   hints: z.array(z.object({ level: z.number().int().min(1), title: z.string(), text: z.string() })),
   rubric: z.record(z.enum(CRITERION_IDS), z.number().min(0)),
 });
 export type Problem = z.infer<typeof problemSchema>;
+export type Curveball = Problem['curveballs'][number];

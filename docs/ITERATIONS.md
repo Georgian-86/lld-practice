@@ -257,3 +257,48 @@ ended at a number. Nothing tested what interviewers actually push on next:
 3. The hero illustration is hidden on phones (it's too small to read there).
 4. The Groq reviewer is still unverified live from this environment. The first
    Render deploy with `GROQ_API_KEY` is where it will first run for real.
+
+---
+
+## Iteration 7: a curveball deck, interview mode, achievements
+
+PR #1 was merged. `main` was verified from a fresh clone: typecheck, all unit
+tests, the production build and the full e2e walkthrough. This iteration starts
+from that `main`.
+
+**Done:**
+- **A curveball deck:** three change requests per problem (e.g. Parking Lot: EV
+  charging, pay by UPI or wallet, a valet floor), each tagged with the variation
+  points it stresses. The report offers the deck, marks curveballs already
+  played, and preselects the first unplayed one. The workspace banner and the
+  result card name the chosen curveball.
+- **Seams that paid off:** `diffDesigns` now reports new classes that extend or
+  implement an abstraction that already existed, and the curveball result lists
+  them ("CardPayment plugged into your existing PaymentProcessor").
+- **Interview mode:** "Timed interview" on the problem page (or the timer button
+  in the workspace) starts a countdown of the problem's estimated time. It turns
+  amber in the last five minutes and counts overtime in red. It announces time's
+  up once and never blocks. The report shows "38 of 45 min". The timer ends with
+  its submission.
+- **Achievements**, computed on the server from what was actually submitted:
+  first blueprint, iterator, walked it through, open for extension, seam finder,
+  beat the clock, no hints needed, 90 club, hard mode, full catalogue (with
+  progress). They are shown on Progress, earned first.
+- Submission summaries carry `curveballId` and `timed`.
+- Fixed a rules-of-hooks bug on the Progress page: `useState` was called after an
+  early return on error.
+- Considered a skill radar for the Progress page and dropped it: the criterion
+  averages are magnitudes, which the existing bars show more readably.
+- Tests: achievements (5 unit tests), seams in `diffDesigns`, and e2e steps for
+  picking a curveball from the deck ("Played" marking, named result), achievements
+  earned on Progress, and a timed interview (countdown, stop).
+
+### Critique / backlog
+1. The curveball deck is authored per problem. An AI-generated curveball
+   (grounded on the problem's variation points) would make the deck endless.
+2. Achievements are not announced when earned. A toast on the report that earns
+   one would close the loop.
+3. Interview mode has no "presentation" step (e.g. a 2-minute written summary)
+   yet.
+4. Still carried over: Groq has not been verified live, pending the first Render
+   deploy.

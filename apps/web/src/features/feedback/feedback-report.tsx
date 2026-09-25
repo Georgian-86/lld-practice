@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EvaluationReport, ProblemDTO, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
 import { CRITERIA, GRADE_LABELS } from '@blueprint/shared';
-import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Sparkles, Wrench, Zap } from 'lucide-react';
-import { IMPACT_VERDICT_TEXT } from '@blueprint/shared';
+import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Sparkles, Timer, Wrench, Zap } from 'lucide-react';
+import { curveballFor, IMPACT_VERDICT_TEXT } from '@blueprint/shared';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api, queryKeys } from '@/api/client';
@@ -30,6 +30,7 @@ export function FeedbackReport({
   previous,
   problem,
   isLatest = false,
+  attemptSubmissions = [],
 }: {
   submission: SubmissionDTO;
   report: EvaluationReport;
@@ -39,7 +40,13 @@ export function FeedbackReport({
   previous?: SubmissionSummaryDTO;
   /** The newest version of the attempt: offers the curveball. */
   isLatest?: boolean;
+  /** Every version of this attempt (to mark curveballs already played). */
+  attemptSubmissions?: SubmissionSummaryDTO[];
 }) {
+  const played = useMemo(
+    () => new Set(attemptSubmissions.flatMap((s) => (s.curveballId && problem ? [curveballFor(problem.curveballs, s.curveballId)!.id] : []))),
+    [attemptSubmissions, problem],
+  );
   const impact = useImpact(previous?.id, submission.draft.design);
   const challenge = submission.draft.challenge;
   const curveballResponse = Boolean(challenge && previous && challenge.fromVersion === previous.version);
@@ -56,6 +63,11 @@ export function FeedbackReport({
               <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 <span className={cn('text-xl font-semibold tracking-tight', toneText)}>{GRADE_LABELS[report.grade]}</span>
                 {report.completeness === 'partial' && <Badge tone="warning">Automated checks only</Badge>}
+                {submission.timed && (
+                  <Badge tone={submission.timed.usedMinutes > submission.timed.minutes ? 'warning' : 'neutral'}>
+                    <Timer className="size-3" aria-hidden /> {Math.round(submission.timed.usedMinutes)} of {submission.timed.minutes} min
+                  </Badge>
+                )}
                 {submission.hintsUsed > 0 && (
                   <Badge tone="neutral">
                     {submission.hintsUsed} hint{submission.hintsUsed === 1 ? '' : 's'} used
@@ -108,7 +120,9 @@ export function FeedbackReport({
         </Card>
       </div>
 
-      {curveballResponse && impact && problem && <CurveballResult prompt={problem.extensionScenario.prompt} impact={impact} baseVersion={previous!.version} />}
+      {curveballResponse && impact && problem && (
+        <CurveballResult curveball={curveballFor(problem.curveballs, challenge?.curveballId)!} impact={impact} baseVersion={previous!.version} />
+      )}
 
       {problem && submission.draft.design.entities.length > 0 && (
         <DiagramCard
@@ -121,7 +135,7 @@ export function FeedbackReport({
         />
       )}
 
-      {isLatest && problem && !curveballResponse && <CurveballOffer problem={problem} submission={submission} />}
+      {isLatest && problem && <CurveballOffer problem={problem} submission={submission} played={played} />}
 
       <Findings report={report} simulated={simulated} attemptId={submission.attemptId} />
 
@@ -405,37 +419,77 @@ function DiagramCard({
   );
 }
 
-/** The interviewer's follow-up: a change request that tests whether the design absorbs change. */
-function CurveballOffer({ problem, submission }: { problem: ProblemDTO; submission: SubmissionDTO }) {
+/** The interviewer's follow-ups: change requests that test whether the design absorbs change. */
+function CurveballOffer({ problem, submission, played }: { problem: ProblemDTO; submission: SubmissionDTO; played: Set<string> }) {
   const navigate = useNavigate();
+  const firstUnplayed = problem.curveballs.find((c) => !played.has(c.id)) ?? problem.curveballs[0]!;
+  const [chosen, setChosen] = useState(firstUnplayed.id);
+  const variationName = (id: string) => problem.variationPoints.find((v) => v.id === id)?.name ?? id;
   return (
     <Card className="relative overflow-hidden border-ai/30">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--ai-soft),transparent_60%)]" aria-hidden />
-      <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-ai text-white shadow-sm">
-          <Zap className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold uppercase tracking-wide text-ai-soft-fg">The interviewer’s curveball</div>
-          <p className="mt-1 text-[14px] leading-relaxed text-fg">{problem.extensionScenario.prompt}</p>
-          <p className="mt-1 text-[12.5px] text-muted">
-            Change your design to handle it, then submit. Your next report measures the blast radius: how many existing classes had to change.
-          </p>
+      <div className="relative p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-ai text-white shadow-sm">
+            <Zap className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-ai-soft-fg">The interviewer’s curveballs</h2>
+            <p className="mt-1 text-[13px] text-muted">
+              Pick a change request, adapt your design, and submit. The next report measures the blast radius: how many existing classes had to change.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            className="shrink-0 bg-ai hover:bg-ai/90"
+            icon={<Zap className="size-4" />}
+            onClick={() => navigate(`/attempts/${submission.attemptId}?tab=canvas&curveball=${submission.version}&cb=${chosen}`)}
+          >
+            Take this curveball
+          </Button>
         </div>
-        <Button
-          variant="primary"
-          className="shrink-0 bg-ai hover:bg-ai/90"
-          icon={<Zap className="size-4" />}
-          onClick={() => navigate(`/attempts/${submission.attemptId}?tab=canvas&curveball=${submission.version}`)}
-        >
-          Take the curveball
-        </Button>
+        <div role="radiogroup" aria-label="Choose a curveball" className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          {problem.curveballs.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={chosen === c.id}
+              onClick={() => setChosen(c.id)}
+              className={cn(
+                'flex flex-col rounded-xl border bg-surface p-3.5 text-left transition',
+                chosen === c.id ? 'border-ai ring-2 ring-ai/30' : 'border-border hover:border-border-strong',
+              )}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-[13.5px] font-semibold text-fg">{c.title}</span>
+                {played.has(c.id) && <Badge tone="success">Played</Badge>}
+              </span>
+              <span className="mt-1 line-clamp-3 text-[12.5px] leading-relaxed text-fg-2">{c.prompt}</span>
+              <span className="mt-2 flex flex-wrap gap-1">
+                {c.variationPoints.map((v) => (
+                  <span key={v} className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
+                    tests {variationName(v).toLowerCase()}
+                  </span>
+                ))}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </Card>
   );
 }
 
-function CurveballResult({ prompt, impact, baseVersion }: { prompt: string; impact: NonNullable<ReturnType<typeof useImpact>>; baseVersion: number }) {
+function CurveballResult({
+  curveball,
+  impact,
+  baseVersion,
+}: {
+  curveball: { title: string; prompt: string };
+  impact: NonNullable<ReturnType<typeof useImpact>>;
+  baseVersion: number;
+}) {
   const verdict = IMPACT_VERDICT_TEXT[impact.verdict];
   return (
     <Card className="border-ai/30 p-5">
@@ -444,11 +498,25 @@ function CurveballResult({ prompt, impact, baseVersion }: { prompt: string; impa
           <Zap className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold uppercase tracking-wide text-ai-soft-fg">Curveball result · since version {baseVersion}</div>
-          <p className="mt-1 text-[13px] italic text-muted">“{prompt}”</p>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ai-soft-fg">
+            Curveball result · {curveball.title} · since version {baseVersion}
+          </div>
+          <p className="mt-1 text-[13px] italic text-muted">“{curveball.prompt}”</p>
           <div className={cn('mt-3 text-lg font-semibold tracking-tight', VERDICT_TONE[impact.verdict])}>{verdict.title}</div>
           <p className="mt-0.5 text-[13px] leading-relaxed text-fg-2">{verdict.body}</p>
           <ImpactCounts impact={impact} className="mt-2 text-[13px] text-muted" />
+          {impact.seams.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {impact.seams.map((seam) => (
+                <li key={`${seam.added}-${seam.into}`} className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-[12px] text-success-soft-fg">
+                  <CheckCircle2 className="size-3.5" />
+                  <span>
+                    <span className="font-semibold">{seam.added}</span> plugged into your existing <span className="font-semibold">{seam.into}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </Card>
