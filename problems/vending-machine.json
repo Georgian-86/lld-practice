@@ -1,0 +1,200 @@
+{
+  "id": "vending-machine",
+  "title": "Vending Machine",
+  "difficulty": "medium",
+  "estimatedMinutes": 45,
+  "summary": "Model a snack vending machine whose behaviour depends on its state: idle, collecting money, dispensing, out of stock.",
+  "description": "A vending machine sells snacks from **numbered slots**. A customer selects a product, inserts **coins or notes**, and the machine **dispenses** the product and returns **change**. An operator restocks products and collects cash.\n\nThe machine behaves very differently depending on what is happening — it should not accept money while dispensing, and it should refuse a selection that is out of stock. The company will soon add card payments.\n\nFocus on the **state transitions** and on who is responsible for inventory, money and change.",
+  "tags": [
+    "State",
+    "Strategy",
+    "Inventory"
+  ],
+  "functionalRequirements": [
+    {
+      "id": "FR-1",
+      "text": "The machine holds products in slots, each with a code, price and quantity."
+    },
+    {
+      "id": "FR-2",
+      "text": "A customer selects a product by slot code; out-of-stock selections are refused."
+    },
+    {
+      "id": "FR-3",
+      "text": "The customer inserts coins/notes; the machine tracks the inserted balance."
+    },
+    {
+      "id": "FR-4",
+      "text": "When balance ≥ price, the machine dispenses the product and returns change."
+    },
+    {
+      "id": "FR-5",
+      "text": "The customer can cancel before dispensing and get a full refund."
+    },
+    {
+      "id": "FR-6",
+      "text": "An operator can restock slots and collect cash."
+    }
+  ],
+  "nonFunctionalRequirements": [
+    {
+      "id": "NFR-1",
+      "text": "If exact change cannot be returned, the sale must be refused before dispensing."
+    },
+    {
+      "id": "NFR-2",
+      "text": "Adding card payment must not require rewriting the state logic."
+    }
+  ],
+  "constraints": [
+    "One customer at a time.",
+    "Denominations: 1, 2, 5, 10 coins and 20, 50 notes."
+  ],
+  "coreConcepts": [
+    {
+      "name": "VendingMachine",
+      "synonyms": [
+        "machine",
+        "vendingmachinecontext"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Product",
+      "synonyms": [
+        "item",
+        "snack"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Inventory",
+      "synonyms": [
+        "stock",
+        "slot",
+        "rack",
+        "shelf",
+        "inventorymanager"
+      ],
+      "essential": true
+    },
+    {
+      "name": "State",
+      "synonyms": [
+        "machinestate",
+        "vendingstate",
+        "idlestate",
+        "hasmoneystate",
+        "dispensingstate"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Coin",
+      "synonyms": [
+        "denomination",
+        "money",
+        "note",
+        "cash",
+        "currency"
+      ],
+      "essential": true
+    },
+    {
+      "name": "ChangeDispenser",
+      "synonyms": [
+        "cashbox",
+        "coinbox",
+        "changemaker",
+        "changecalculator",
+        "cashregister",
+        "moneybox"
+      ],
+      "essential": false
+    },
+    {
+      "name": "Payment",
+      "synonyms": [
+        "paymentmethod",
+        "paymentprocessor"
+      ],
+      "essential": false
+    }
+  ],
+  "variationPoints": [
+    {
+      "id": "state",
+      "name": "Machine state",
+      "description": "Idle, HasMoney, Dispensing and OutOfService accept different actions.",
+      "keywords": [
+        "state",
+        "idle",
+        "hasmoney",
+        "dispensing",
+        "mode"
+      ]
+    },
+    {
+      "id": "payment",
+      "name": "Payment method",
+      "description": "Cash today, card tomorrow.",
+      "keywords": [
+        "payment",
+        "pay",
+        "processor",
+        "method",
+        "card"
+      ]
+    },
+    {
+      "id": "change",
+      "name": "Change-making policy",
+      "description": "Greedy vs optimal change calculation, or limited coin stock.",
+      "keywords": [
+        "change",
+        "changemaker",
+        "calculator",
+        "dispenser"
+      ]
+    }
+  ],
+  "extensionScenario": {
+    "prompt": "The company adds card payments and a 'maintenance' state in which the machine refuses all customer actions. Which classes change, which are added, and which stay untouched?",
+    "keywords": [
+      "state",
+      "payment",
+      "card",
+      "maintenance",
+      "interface",
+      "strategy",
+      "open",
+      "closed",
+      "new class"
+    ]
+  },
+  "hints": [
+    {
+      "level": 1,
+      "title": "List the states first",
+      "text": "Write down the states (Idle, HasMoney, Dispensing, OutOfStock/Maintenance) and which actions are legal in each. That table is your design."
+    },
+    {
+      "level": 2,
+      "title": "Use the State pattern",
+      "text": "A VendingState interface with selectProduct, insertMoney, dispense and cancel. Each state class implements only what is legal and moves the machine to the next state."
+    },
+    {
+      "level": 3,
+      "title": "Money is its own responsibility",
+      "text": "Keep change-making out of the states. A CashBox/ChangeDispenser that knows its coin stock can answer 'can I make change for X?' before dispensing (NFR-1)."
+    }
+  ],
+  "rubric": {
+    "requirements": 20,
+    "modelling": 15,
+    "responsibilities": 20,
+    "relationships": 15,
+    "extensibility": 20,
+    "tradeoffs": 10
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "id": "elevator-system",
+  "title": "Elevator System",
+  "difficulty": "hard",
+  "estimatedMinutes": 60,
+  "summary": "Design the controller for a bank of elevators that serves hall and car requests with a pluggable scheduling policy.",
+  "description": "An office tower has **N elevators** serving **M floors**. People press an **up/down hall button** on a floor, or a **floor button inside the car**. A central controller decides which elevator serves each hall request.\n\nThe building owner wants to experiment with scheduling algorithms (nearest car, least busy, zoning for peak hours) and needs a *maintenance mode* that takes a car out of service.\n\nFocus on the **object model and state**: which object owns which state, how requests flow from buttons to cars, and where the scheduling decision lives.",
+  "tags": ["State", "Strategy", "Observer"],
+  "functionalRequirements": [
+    { "id": "FR-1", "text": "Passengers can call an elevator from any floor using Up or Down hall buttons." },
+    { "id": "FR-2", "text": "Inside a car, passengers can select one or more destination floors." },
+    { "id": "FR-3", "text": "A central dispatcher assigns each hall request to one elevator using a scheduling policy." },
+    { "id": "FR-4", "text": "Each elevator tracks its current floor, direction (up/down/idle) and door state." },
+    { "id": "FR-5", "text": "An elevator can be put into maintenance mode and receives no new requests while in it." },
+    { "id": "FR-6", "text": "Displays inside cars and on floors show the current floor and direction of each car." }
+  ],
+  "nonFunctionalRequirements": [
+    { "id": "NFR-1", "text": "The scheduling algorithm must be swappable at runtime (e.g. peak-hour zoning)." },
+    { "id": "NFR-2", "text": "Doors must never open while the car is moving." }
+  ],
+  "constraints": [
+    "Ignore physical motor control — assume a moveTo(floor) primitive exists.",
+    "Weight limits and emergency alarms are out of scope."
+  ],
+  "coreConcepts": [
+    { "name": "Elevator", "synonyms": ["car", "elevatorcar", "lift", "cabin"], "essential": true },
+    { "name": "Dispatcher", "synonyms": ["controller", "elevatorcontroller", "scheduler", "elevatorsystem", "dispatchcontroller", "manager"], "essential": true },
+    { "name": "Request", "synonyms": ["call", "hallcall", "carcall", "hallrequest", "carrequest", "elevatorrequest"], "essential": true },
+    { "name": "Floor", "synonyms": ["level"], "essential": false },
+    { "name": "Direction", "synonyms": ["movementdirection"], "essential": true },
+    { "name": "Door", "synonyms": ["doors", "doorstate"], "essential": false },
+    { "name": "Button", "synonyms": ["hallbutton", "floorbutton", "carbutton", "panel", "buttonpanel"], "essential": false },
+    { "name": "Display", "synonyms": ["displayboard", "indicator", "floordisplay"], "essential": false }
+  ],
+  "variationPoints": [
+    {
+      "id": "scheduling",
+      "name": "Scheduling policy",
+      "description": "The rule for choosing which car serves a hall request.",
+      "keywords": ["scheduling", "scheduler", "dispatch", "strategy", "policy", "algorithm", "selection", "selector"]
+    },
+    {
+      "id": "state",
+      "name": "Elevator state",
+      "description": "Behaviour differs when idle, moving, doors-open or in maintenance.",
+      "keywords": ["state", "mode", "status", "idle", "moving", "maintenance"]
+    }
+  ],
+  "extensionScenario": {
+    "prompt": "The owner adds a VIP express elevator that skips floors 2–20 and a fire mode where every car returns to the ground floor. How does your design absorb these?",
+    "keywords": ["state", "strategy", "mode", "fire", "express", "observer", "event", "policy", "override"]
+  },
+  "hints": [
+    { "level": 1, "title": "Who owns what state?", "text": "Each Elevator owns its current floor, direction and door state. The Dispatcher owns nothing but the decision of which elevator gets a hall call. Keep those apart." },
+    { "level": 2, "title": "Make scheduling pluggable", "text": "Introduce a SchedulingStrategy interface with something like selectElevator(request, elevators). NearestCar, LeastBusy and Zoned become implementations; the Dispatcher holds a reference it can swap." },
+    { "level": 3, "title": "Model states explicitly", "text": "Idle, MovingUp, MovingDown, DoorsOpen and Maintenance behave differently. An ElevatorState interface (State pattern) makes illegal actions — opening doors while moving — impossible by construction." }
+  ],
+  "rubric": {
+    "requirements": 15,
+    "modelling": 15,
+    "responsibilities": 20,
+    "relationships": 15,
+    "extensibility": 25,
+    "tradeoffs": 10
+  }
+}
