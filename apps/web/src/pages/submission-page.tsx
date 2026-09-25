@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SubmissionDTO } from '@blueprint/shared';
+import type { SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
 import { isTerminal } from '@blueprint/shared';
 import { AlertTriangle, ChevronRight, GitCompareArrows, PencilLine, RefreshCw, XCircle } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -104,12 +104,22 @@ export function SubmissionPage() {
         </div>
       </div>
 
-      <Body submission={submission} onRetry={() => retry.mutate()} retrying={retry.isPending} />
+      <Body submission={submission} previous={previous} onRetry={() => retry.mutate()} retrying={retry.isPending} />
     </PageContainer>
   );
 }
 
-function Body({ submission, onRetry, retrying }: { submission: SubmissionDTO; onRetry: () => void; retrying: boolean }) {
+function Body({
+  submission,
+  previous,
+  onRetry,
+  retrying,
+}: {
+  submission: SubmissionDTO;
+  previous?: SubmissionSummaryDTO;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
   if (!isTerminal(submission.status)) return <EvaluationProgress submission={submission} />;
 
   if (submission.status === 'failed' && !submission.evaluation) {
@@ -142,7 +152,7 @@ function Body({ submission, onRetry, retrying }: { submission: SubmissionDTO; on
           </Button>
         </div>
       )}
-      <FeedbackReport submission={submission} report={report} />
+      <FeedbackReport submission={submission} report={report} previous={previous} />
     </div>
   );
 }

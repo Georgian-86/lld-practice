@@ -61,6 +61,15 @@ describe('parseMermaidClassDiagram', () => {
 });
 
 describe('designToMermaid', () => {
+  it('writes method return types the way Mermaid expects', () => {
+    const source = designToMermaid({
+      entities: [{ id: '1', name: 'Lot', kind: 'class', responsibilities: [], attributes: ['floors: List<Floor>'], methods: ['park(v: Vehicle): Ticket'] }],
+      relationships: [],
+    });
+    expect(source).toContain('park(v: Vehicle) Ticket');
+    expect(source).toContain('floors: List~Floor~');
+  });
+
   it('round-trips through the parser', () => {
     const source = designToMermaid({
       entities: [

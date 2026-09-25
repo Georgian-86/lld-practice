@@ -98,6 +98,7 @@ await page.evaluate(
 await page.goto(`${BASE}/attempts/${attemptId}?tab=classes`);
 await page.getByRole('button', { name: /ParkingSpot/ }).waitFor();
 await page.getByRole('button', { name: /ParkingSpot/ }).click();
+await page.waitForTimeout(250); // let the selection transition finish
 await shot(page, '04-workspace-classes', false);
 for (const [tab, name] of [
   ['Relationships', '05-workspace-relationships'],
@@ -127,6 +128,15 @@ await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
 await page.waitForTimeout(800);
 await shot(page, '13-feedback-v1');
 const v1 = page.url().split('/submissions/')[1];
+
+step('Deep link from a finding into the editor');
+await page.getByRole('link', { name: 'FR-5' }).first().click();
+await page.waitForURL(/tab=traceability&focus=FR-5/);
+await page.locator('#req-FR-5.ring-4').waitFor();
+await page.waitForTimeout(600);
+await shot(page, '13b-deep-link', false);
+await page.goBack();
+await page.getByText('Rubric breakdown').waitFor();
 
 step('Revise and submit v2');
 await page.getByRole('button', { name: 'Revise design' }).click();
@@ -192,8 +202,17 @@ await shot(mobile, '21-mobile-home');
 await mobile.goto(`${BASE}/submissions/${v1}`);
 await mobile.getByText('Rubric breakdown').waitFor();
 await shot(mobile, '22-mobile-feedback');
-const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-if (overflow > 0) problems.push(`[layout] mobile feedback page scrolls horizontally by ${overflow}px`);
+for (const path of ['/', `/submissions/${v1}`, '/progress', `/attempts/${attemptId}`, '/problems/parking-lot']) {
+  await mobile.goto(`${BASE}${path}`);
+  await mobile.waitForLoadState('networkidle');
+  const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (overflow > 0) problems.push(`[layout] ${path} scrolls horizontally on mobile by ${overflow}px`);
+}
+await mobile.goto(`${BASE}/attempts/${attemptId}`);
+await mobile.getByRole('button', { name: 'Brief & hints' }).click();
+await mobile.getByRole('dialog').getByText('A city-centre garage').waitFor();
+await mobile.waitForTimeout(400); // let the slide-in finish
+await shot(mobile, '23-mobile-workspace-brief', false);
 
 await browser.close();
 

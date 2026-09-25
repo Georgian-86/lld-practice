@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { CRITERIA } from '@blueprint/shared';
 import { Activity, ArrowRight, BarChart3, ChevronRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
@@ -21,7 +22,11 @@ export function ProgressPage() {
 
   if (error) return <ErrorView error={error} onRetry={() => void refetch()} />;
 
-  const scored = (data?.recent ?? []).filter((s) => s.overallScore !== null).reverse();
+  const [problemFilter, setProblemFilter] = useState('all');
+  const practicedProblems = [...new Map((data?.recent ?? []).map((s) => [s.problemId, s.problemTitle])).entries()];
+  const scored = (data?.recent ?? [])
+    .filter((s) => s.overallScore !== null && (problemFilter === 'all' || s.problemId === problemFilter))
+    .reverse();
   const tiles = [
     { label: 'Problems practiced', value: data?.totals.problemsPracticed },
     { label: 'Submissions', value: data?.totals.submissions },
@@ -63,9 +68,30 @@ export function ProgressPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
             <Card>
-              <CardHeader title="Score over time" icon={<Activity className="size-4" />} description="Each point is one submission — click to open its feedback" />
+              <CardHeader
+                title="Score over time"
+                icon={<Activity className="size-4" />}
+                description="Each point is one submission — click to open its feedback"
+                actions={
+                  practicedProblems.length > 1 ? (
+                    <select
+                      value={problemFilter}
+                      onChange={(e) => setProblemFilter(e.target.value)}
+                      className="field h-8 w-auto py-0 text-[13px]"
+                      aria-label="Filter by problem"
+                    >
+                      <option value="all">All problems</option>
+                      {practicedProblems.map(([id, title]) => (
+                        <option key={id} value={id}>
+                          {title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : undefined
+                }
+              />
               <div className="p-5">
                 {isLoading ? (
                   <Skeleton className="h-52" />

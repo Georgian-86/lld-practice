@@ -1,6 +1,7 @@
 import type { Finding } from '@blueprint/shared';
 import { CRITERIA } from '@blueprint/shared';
 import { AlertOctagon, AlertTriangle, ArrowRight, CircleDot, Info, Lightbulb, Sparkles, ThumbsUp, Wrench } from 'lucide-react';
+import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
@@ -44,9 +45,31 @@ export function SourceBadge({ source, simulated }: { source: Finding['source']; 
   );
 }
 
-export function FindingCard({ finding, simulated, compact = false }: { finding: Finding; simulated?: boolean; compact?: boolean }) {
+/** Where in the editor a piece of evidence can be fixed. */
+export function evidenceHref(attemptId: string, item: { requirementId?: string; entity?: string }): string {
+  const params = new URLSearchParams(
+    item.requirementId ? { tab: 'traceability', focus: item.requirementId } : { tab: 'classes', focus: item.entity ?? '' },
+  );
+  return `/attempts/${attemptId}?${params.toString()}`;
+}
+
+export function FindingCard({
+  finding,
+  simulated,
+  compact = false,
+  attemptId,
+}: {
+  finding: Finding;
+  simulated?: boolean;
+  compact?: boolean;
+  /** When set, evidence chips link into the editor at the right place. */
+  attemptId?: string;
+}) {
   const { Icon, iconClass, label } = visual(finding);
-  const evidence = [...(finding.evidence.requirementIds ?? []), ...(finding.evidence.entities ?? [])];
+  const evidence: { key: string; requirementId?: string; entity?: string }[] = [
+    ...(finding.evidence.requirementIds ?? []).map((id) => ({ key: id, requirementId: id })),
+    ...(finding.evidence.entities ?? []).map((name) => ({ key: name, entity: name })),
+  ];
   return (
     <article className={cn('flex gap-3.5 rounded-xl border border-border bg-surface p-4', compact && 'p-3.5')}>
       <div className={cn('grid size-8 shrink-0 place-items-center rounded-lg', iconClass)}>
@@ -68,11 +91,22 @@ export function FindingCard({ finding, simulated, compact = false }: { finding: 
           <SourceBadge source={finding.source} simulated={simulated} />
           <span className="text-xs text-subtle">{CRITERIA[finding.criterionId].name}</span>
           {evidence.length > 0 && <span className="text-xs text-subtle">·</span>}
-          {evidence.slice(0, 6).map((e) => (
-            <code key={e} className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-2">
-              {e}
-            </code>
-          ))}
+          {evidence.slice(0, 6).map((e) =>
+            attemptId ? (
+              <Tooltip key={e.key} content={e.requirementId ? `Open ${e.key} in the Traceability tab` : `Open ${e.key} in the editor`}>
+                <Link
+                  to={evidenceHref(attemptId, e)}
+                  className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-2 underline decoration-border-strong decoration-dotted underline-offset-2 transition hover:bg-primary-soft hover:text-primary-soft-fg hover:decoration-primary"
+                >
+                  {e.key}
+                </Link>
+              </Tooltip>
+            ) : (
+              <code key={e.key} className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-2">
+                {e.key}
+              </code>
+            ),
+          )}
           {evidence.length > 6 && <span className="text-xs text-subtle">+{evidence.length - 6}</span>}
         </div>
       </div>

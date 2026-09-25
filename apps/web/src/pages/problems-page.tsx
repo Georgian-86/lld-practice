@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ProblemSummaryDTO } from '@blueprint/shared';
+import type { AttemptDTO, ProblemSummaryDTO } from '@blueprint/shared';
 import { ArrowRight, CheckCircle2, Clock, ListChecks, MessageSquareText, PenTool, RotateCcw, Send } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, queryKeys } from '@/api/client';
@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/misc';
 import { ScorePill } from '@/components/ui/score';
 import { DifficultyBadge } from '@/features/problems/difficulty';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { plural } from '@/lib/format';
+import { plural, timeAgo } from '@/lib/format';
 
 const STEPS = [
   { icon: ListChecks, title: 'Pick a problem', text: 'Clear requirements and the likely points of change.' },
@@ -24,6 +24,8 @@ const STEPS = [
 export function ProblemsPage() {
   useDocumentTitle(undefined);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: queryKeys.problems, queryFn: api.problems });
+  const attempts = useQuery({ queryKey: queryKeys.attempts(), queryFn: () => api.attempts() });
+  const recent = attempts.data?.[0];
   const practiced = data?.filter((p) => p.progress.submissions > 0).length ?? 0;
 
   return (
@@ -58,6 +60,8 @@ export function ProblemsPage() {
         </ol>
       </section>
 
+      {recent && <ContinueCard attempt={recent} />}
+
       <section aria-labelledby="problems-heading">
         <div className="mb-4 flex items-end justify-between">
           <div>
@@ -80,6 +84,34 @@ export function ProblemsPage() {
         )}
       </section>
     </PageContainer>
+  );
+}
+
+function ContinueCard({ attempt }: { attempt: AttemptDTO }) {
+  const last = attempt.submissions.at(-1);
+  return (
+    <Link to={`/attempts/${attempt.id}`} className="group mb-8 block rounded-xl focus-visible:outline-offset-4">
+      <Card className="flex flex-col gap-4 border-primary/25 bg-gradient-to-r from-primary-soft/70 to-surface p-5 transition group-hover:shadow-md sm:flex-row sm:items-center">
+        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-fg">
+          <PenTool className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-wide text-primary-soft-fg">Continue where you left off</div>
+          <div className="mt-0.5 text-[15px] font-semibold text-fg">{attempt.problemTitle}</div>
+          <div className="text-[13px] text-muted">
+            {last ? `Version ${last.version} submitted ${timeAgo(last.submittedAt)}` : 'Draft in progress'} · edited {timeAgo(attempt.updatedAt)}
+          </div>
+        </div>
+        {last?.overallScore != null && (
+          <div className="flex items-center gap-2 text-[13px] text-muted">
+            Last score <ScorePill score={last.overallScore} />
+          </div>
+        )}
+        <span className="inline-flex items-center gap-1 text-[13px] font-medium text-primary">
+          Open workspace <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </Card>
+    </Link>
   );
 }
 

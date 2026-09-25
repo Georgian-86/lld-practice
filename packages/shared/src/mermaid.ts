@@ -213,7 +213,9 @@ export function mermaidId(name: string): string {
 }
 
 function sanitizeMember(text: string): string {
-  return text
+  // Mermaid writes return types as `method(args) Type`; `method(args): Type` renders as ": :".
+  const normalised = text.includes('(') ? text.replace(/\)\s*:\s*/, ') ') : text;
+  return normalised
     .replace(/[{}]/g, '')
     .replace(/[<>]/g, '~')
     .replace(/%%/g, '')

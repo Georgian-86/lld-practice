@@ -1,0 +1,16 @@
+# One-click deploy on Render (Blueprint). Uses the Dockerfile; SQLite lives on a persistent disk.
+services:
+  - type: web
+    name: blueprint-lld
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false # set in the dashboard; without it the offline reviewer is used
+      - key: LLM_MODEL
+        value: claude-opus-5

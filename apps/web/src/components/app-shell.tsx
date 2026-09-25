@@ -60,18 +60,18 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4 sm:gap-6 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight text-fg">
             <Logo className="size-7" />
             <span className="text-[15px]">Blueprint</span>
             <span className="hidden rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-muted sm:inline">LLD practice</span>
           </Link>
           <nav className="flex items-center gap-1" aria-label="Main">
-            <NavLink to="/" end className={navItem}>
-              <LayoutGrid className="size-4" /> Problems
+            <NavLink to="/" end className={navItem} aria-label="Problems">
+              <LayoutGrid className="size-4" /> <span className="hidden sm:inline">Problems</span>
             </NavLink>
-            <NavLink to="/progress" className={navItem}>
-              <BarChart3 className="size-4" /> Progress
+            <NavLink to="/progress" className={navItem} aria-label="Progress">
+              <BarChart3 className="size-4" /> <span className="hidden sm:inline">Progress</span>
             </NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-2">

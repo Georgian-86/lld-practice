@@ -5,14 +5,14 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/cn';
 
 const STEPS = [
-  { id: 'queued', label: 'Submitted', detail: 'Your design snapshot is saved' },
+  { id: 'queued', label: 'Submitted', detail: 'Snapshot saved and queued for review' },
   { id: 'rules', label: 'Design checks', detail: '15 deterministic rules' },
   { id: 'ai', label: 'AI review', detail: 'Qualitative judgement, grounded on the checks' },
   { id: 'scoring', label: 'Feedback', detail: 'Scoring against the rubric' },
 ] as const;
 
 function currentStep(submission: SubmissionDTO): number {
-  if (submission.status === 'submitted') return 1;
+  if (submission.status === 'submitted') return 0;
   const message = submission.statusMessage ?? '';
   if (/AI reviewer/i.test(message)) return 2;
   if (/Scoring/i.test(message)) return 3;
@@ -35,7 +35,7 @@ export function EvaluationProgress({ submission }: { submission: SubmissionDTO }
         </div>
         <h2 className="text-lg font-semibold tracking-tight">Reviewing version {submission.version}</h2>
         <p className="mt-1 text-[13px] text-muted" aria-live="polite">
-          {submission.statusMessage ?? 'Waiting for a reviewer…'}
+          {submission.statusMessage ?? (submission.status === 'submitted' ? 'Queued — a reviewer will pick it up in a moment' : 'Starting…')}
           <span className="tabular-nums"> · {elapsed}s</span>
         </p>
       </div>

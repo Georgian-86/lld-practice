@@ -1,20 +1,40 @@
 import type { DesignModel, ProblemDTO, Requirement } from '@blueprint/shared';
 import { CheckCircle2, Circle } from 'lucide-react';
-import type { Dispatch } from 'react';
+import { useEffect, type Dispatch } from 'react';
 import { Meter } from '@/components/ui/score';
 import { SectionTitle } from '@/components/ui/misc';
 import { cn } from '@/lib/cn';
 import { isMapped, type DraftAction } from './draft-reducer';
 import { EntityPicker } from './entity-picker';
 
-export function TraceabilityPanel({ problem, design, dispatch }: { problem: ProblemDTO; design: DesignModel; dispatch: Dispatch<DraftAction> }) {
+export function TraceabilityPanel({
+  problem,
+  design,
+  dispatch,
+  focus,
+}: {
+  problem: ProblemDTO;
+  design: DesignModel;
+  dispatch: Dispatch<DraftAction>;
+  focus?: string | null;
+}) {
   const functional = problem.functionalRequirements;
+  useEffect(() => {
+    if (focus) document.getElementById(`req-${focus}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [focus]);
   const mapped = functional.filter((r) => isMapped(design, r.id)).length;
 
   const row = (requirement: Requirement, tone: 'primary' | 'info') => {
     const done = isMapped(design, requirement.id);
     return (
-      <li key={requirement.id} className="rounded-xl border border-border bg-surface p-4 shadow-xs">
+      <li
+        key={requirement.id}
+        id={`req-${requirement.id}`}
+        className={cn(
+          'scroll-mt-4 rounded-xl border border-border bg-surface p-4 shadow-xs transition-shadow',
+          focus === requirement.id && 'border-primary ring-4 ring-ring',
+        )}
+      >
         <div className="flex gap-3">
           {done ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> : <Circle className="mt-0.5 size-4 shrink-0 text-subtle" />}
           <div className="min-w-0 flex-1">

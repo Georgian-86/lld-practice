@@ -1,7 +1,10 @@
-import type { EvaluationReport, SubmissionDTO } from '@blueprint/shared';
+import { useQuery } from '@tanstack/react-query';
+import type { EvaluationReport, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
 import { CRITERIA, GRADE_LABELS } from '@blueprint/shared';
-import { CheckCircle2, ChevronDown, Compass, GitCompareArrows, ListChecks, Sparkles, Wrench } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, Compass, GitCompareArrows, ListChecks, Sparkles, Wrench } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import { api, queryKeys } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/misc';
@@ -17,7 +20,16 @@ export function isSimulated(report: EvaluationReport): boolean {
   return report.evaluators.some((e) => e.kind === 'llm' && e.detail?.startsWith('simulated'));
 }
 
-export function FeedbackReport({ submission, report }: { submission: SubmissionDTO; report: EvaluationReport }) {
+export function FeedbackReport({
+  submission,
+  report,
+  previous,
+}: {
+  submission: SubmissionDTO;
+  report: EvaluationReport;
+  /** The latest earlier version with feedback, if any. */
+  previous?: SubmissionSummaryDTO;
+}) {
   const simulated = isSimulated(report);
   const toneText = { success: 'text-success', primary: 'text-primary', warning: 'text-warning', danger: 'text-danger' }[scoreTone(report.overallScore)];
 
@@ -49,6 +61,8 @@ export function FeedbackReport({ submission, report }: { submission: SubmissionD
               </div>
             </div>
           )}
+          <TopStrengths report={report} />
+          {previous && <SinceLastVersion previous={previous} current={submission} />}
         </Card>
 
         <Card>
@@ -82,7 +96,7 @@ export function FeedbackReport({ submission, report }: { submission: SubmissionD
         </Card>
       </div>
 
-      <Findings report={report} simulated={simulated} />
+      <Findings report={report} simulated={simulated} attemptId={submission.attemptId} />
 
       {report.alternatives.length > 0 && (
         <Card>
@@ -111,7 +125,74 @@ export function FeedbackReport({ submission, report }: { submission: SubmissionD
   );
 }
 
-function Findings({ report, simulated }: { report: EvaluationReport; simulated: boolean }) {
+function TopStrengths({ report }: { report: EvaluationReport }) {
+  const strengths = report.findings.filter((f) => f.kind === 'strength').slice(0, 3);
+  if (strengths.length === 0) return null;
+  return (
+    <div className="mt-6">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">What you did well</div>
+      <ul className="space-y-1.5">
+        {strengths.map((s) => (
+          <li key={`${s.source}-${s.fingerprint}`} className="flex items-start gap-2 text-[13px] text-fg-2">
+            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
+            {s.title}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SinceLastVersion({ previous, current }: { previous: SubmissionSummaryDTO; current: SubmissionDTO }) {
+  const { data } = useQuery({
+    queryKey: queryKeys.compare(previous.id, current.id),
+    queryFn: () => api.compare(previous.id, current.id),
+  });
+  const stats = data
+    ? [
+        { label: 'score', value: data.scoreDelta ?? 0, delta: true },
+        { label: 'fixed', value: data.resolved.length },
+        { label: 'new strengths', value: data.newStrengths.length },
+        { label: 'new issues', value: data.introduced.length },
+      ]
+    : null;
+  return (
+    <div className="mt-auto pt-6">
+      <div className="rounded-xl border border-border p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted">Since version {previous.version}</span>
+          <Link to={`/compare?base=${previous.id}&target=${current.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            Full comparison <ArrowRight className="size-3" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {(stats ?? Array.from({ length: 4 }, () => null)).map((s, i) => (
+            <div key={s?.label ?? i} className="text-center">
+              {s ? (
+                <>
+                  <div
+                    className={cn(
+                      'text-lg font-semibold tabular-nums',
+                      s.delta ? (s.value > 0 ? 'text-success' : s.value < 0 ? 'text-danger' : 'text-muted') : 'text-fg',
+                      s.label === 'new issues' && s.value > 0 && 'text-danger',
+                    )}
+                  >
+                    {s.delta && s.value > 0 ? `+${s.value}` : s.value}
+                  </div>
+                  <div className="text-[11px] text-muted">{s.label}</div>
+                </>
+              ) : (
+                <div className="skeleton mx-auto h-9 w-12" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Findings({ report, simulated, attemptId }: { report: EvaluationReport; simulated: boolean; attemptId: string }) {
   const [filter, setFilter] = useState<Filter>('improve');
   const groups = useMemo(() => {
     const improve = report.findings.filter((f) => f.kind !== 'strength' && f.severity !== 'info');
@@ -150,16 +231,16 @@ function Findings({ report, simulated }: { report: EvaluationReport; simulated: 
       ) : (
         <div className="space-y-3">
           {shown.map((f) => (
-            <FindingCard key={`${f.source}-${f.fingerprint}`} finding={f} simulated={simulated} />
+            <FindingCard key={`${f.source}-${f.fingerprint}`} finding={f} simulated={simulated} attemptId={attemptId} />
           ))}
         </div>
       )}
-      {filter === 'improve' && groups.notes.length > 0 && <Notes notes={groups.notes} simulated={simulated} />}
+      {filter === 'improve' && groups.notes.length > 0 && <Notes notes={groups.notes} simulated={simulated} attemptId={attemptId} />}
     </section>
   );
 }
 
-function Notes({ notes, simulated }: { notes: EvaluationReport['findings']; simulated: boolean }) {
+function Notes({ notes, simulated, attemptId }: { notes: EvaluationReport['findings']; simulated: boolean; attemptId: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-3">
@@ -175,7 +256,7 @@ function Notes({ notes, simulated }: { notes: EvaluationReport['findings']; simu
       {open && (
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           {notes.map((f) => (
-            <FindingCard key={`${f.source}-${f.fingerprint}`} finding={f} simulated={simulated} compact />
+            <FindingCard key={`${f.source}-${f.fingerprint}`} finding={f} simulated={simulated} attemptId={attemptId} compact />
           ))}
         </div>
       )}

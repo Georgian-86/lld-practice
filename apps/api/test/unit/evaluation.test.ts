@@ -205,7 +205,26 @@ describe('EvaluationPipeline', () => {
   });
 });
 
+describe('simulateReview', () => {
+  it('names the class that uses the most collaborators as orchestrator, not a popular base class', () => {
+    const review = simulateReview(parking, goodParkingDesign(), []);
+    const orchestrator = review.findings.find((f) => f.title === 'Keep the orchestrator thin');
+    expect(orchestrator?.entities).toEqual(['ParkingLot']);
+  });
+
+  it('never awards a perfect rating to every criterion', () => {
+    const review = simulateReview(parking, goodParkingDesign(), []);
+    expect(review.criteria.some((c) => c.rating < 5)).toBe(true);
+  });
+});
+
 describe('diffFindings', () => {
+  it('ignores optional info notes when classifying fixed/new issues', () => {
+    const note = finding({ fingerprint: 'n', kind: 'suggestion', severity: 'info' });
+    const diff = diffFindings({ findings: [note] } as never, { findings: [] } as never);
+    expect(diff.resolved).toEqual([]);
+  });
+
   it('classifies resolved, introduced, persisting and new strengths by fingerprint', () => {
     const base = { findings: [finding({ fingerprint: 'a' }), finding({ fingerprint: 'b' })] } as never;
     const target = {

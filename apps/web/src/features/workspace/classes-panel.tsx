@@ -10,8 +10,14 @@ import { nonBlank, type DraftAction } from './draft-reducer';
 import { KIND_LABELS, KindIcon } from './kind-icon';
 import { LinesField } from './lines-field';
 
-export function ClassesPanel({ design, dispatch }: { design: DesignModel; dispatch: Dispatch<DraftAction> }) {
-  const [selectedId, setSelectedId] = useState<string | null>(design.entities[0]?.id ?? null);
+export function ClassesPanel({ design, dispatch, focus }: { design: DesignModel; dispatch: Dispatch<DraftAction>; focus?: string | null }) {
+  const focused = focus ? design.entities.find((e) => nameKey(e.name) === nameKey(focus)) : undefined;
+  const [selectedId, setSelectedId] = useState<string | null>(focused?.id ?? design.entities[0]?.id ?? null);
+  useEffect(() => {
+    if (focused) setSelectedId(focused.id);
+    // Only react to a new deep link, not to edits of the focused entity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
   const [focusNameOf, setFocusNameOf] = useState<string | null>(null);
   const selected = design.entities.find((e) => e.id === selectedId) ?? design.entities[0] ?? null;
 
@@ -213,8 +219,8 @@ function EntityEditor({
           onChange={(responsibilities) => update({ responsibilities })}
           placeholder={
             entity.kind === 'interface'
-              ? 'What contract does this define?\ne.g. Calculates the fee for a ticket'
-              : 'What is this class responsible for?\ne.g. Tracks which spots on this floor are free'
+              ? 'What contract does this define? One per line, e.g.\nCalculates the fee for a ticket'
+              : 'What is this class responsible for? One per line, e.g.\nTracks which spots on this floor are free'
           }
         />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -222,14 +228,14 @@ function EntityEditor({
             label={entity.kind === 'enum' ? 'Values' : 'Attributes'}
             value={entity.attributes}
             onChange={(attributes) => update({ attributes })}
-            placeholder={entity.kind === 'enum' ? 'COMPACT\nREGULAR\nLARGE' : 'floors: List<Floor>\nname: String'}
+            placeholder={entity.kind === 'enum' ? 'One per line, e.g.\nCOMPACT' : 'One per line, e.g.\nfloors: List<Floor>'}
             mono
           />
           <LinesField
             label="Methods"
             value={entity.methods}
             onChange={(methods) => update({ methods })}
-            placeholder={entity.kind === 'enum' ? '(optional)' : 'park(vehicle): Ticket\nunpark(ticket): Receipt'}
+            placeholder={entity.kind === 'enum' ? 'Optional' : 'One per line, e.g.\npark(vehicle): Ticket'}
             mono
           />
         </div>

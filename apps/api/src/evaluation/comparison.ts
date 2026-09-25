@@ -13,7 +13,8 @@ export interface FindingDiff {
  * by criterion + title, which is best-effort.
  */
 export function diffFindings(base: EvaluationReport, target: EvaluationReport): FindingDiff {
-  const problems = (r: EvaluationReport) => r.findings.filter((f) => f.kind !== 'strength');
+  // Optional "info" ideas are not problems; tracking them as fixed/new is noise.
+  const problems = (r: EvaluationReport) => r.findings.filter((f) => f.kind !== 'strength' && f.severity !== 'info');
   const baseIssues = new Map(problems(base).map((f) => [f.fingerprint, f]));
   const targetIssues = new Map(problems(target).map((f) => [f.fingerprint, f]));
   const baseStrengths = new Set(base.findings.filter((f) => f.kind === 'strength').map((f) => f.fingerprint));

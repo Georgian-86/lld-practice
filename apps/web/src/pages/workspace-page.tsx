@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
 import { isTerminal } from '@blueprint/shared';
-import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, CloudOff, Loader2, Send, XCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, ChevronRight, CloudOff, Loader2, Send, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { api, ApiError, queryKeys } from '@/api/client';
 import { ErrorView } from '@/components/error-view';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, Sheet } from '@/components/ui/dialog';
+import { Kbd } from '@/components/ui/misc';
+import { Tooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/misc';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DifficultyBadge } from '@/features/problems/difficulty';
@@ -52,10 +54,13 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const tab: Tab = TABS.includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : 'classes';
+  // `focus` deep-links from feedback to a class or requirement; it is dropped on the next tab change.
+  const focus = params.get('focus');
   const setTab = (next: string) =>
     setParams(
       (p) => {
         p.set('tab', next);
+        p.delete('focus');
         return p;
       },
       { replace: true },
@@ -65,6 +70,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
   const design = draft.design;
   const autosave = useAutosave(attempt.id, draft);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [briefOpen, setBriefOpen] = useState(false);
 
   // Keep the cached attempt in sync so navigating away and back never shows a stale draft.
   useEffect(() => {
@@ -96,6 +102,23 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
     },
   });
 
+  // Keyboard: Ctrl/⌘+S saves now, Ctrl/⌘+Enter opens the submit dialog (or confirms it).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 's') {
+        e.preventDefault();
+        void autosave.saveNow();
+      } else if (e.key === 'Enter' && !pending) {
+        e.preventDefault();
+        if (!confirmOpen) setConfirmOpen(true);
+        else if (!blocked && !submit.isPending) submit.mutate();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [autosave, pending, confirmOpen, blocked, submit]);
+
   const named = design.entities.filter((e) => e.name.trim()).length;
   const mapped = problem.functionalRequirements.filter((r) => isMapped(design, r.id)).length;
   const counts: Record<Tab, string | null> = {
@@ -123,16 +146,30 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           <span className="hidden text-xs text-muted sm:inline">· Draft v{(latest?.version ?? 0) + 1}</span>
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <SaveIndicator state={autosave.state} savedAt={autosave.savedAt} onRetry={() => void autosave.saveNow()} />
-          <Button
-            variant="primary"
-            icon={<Send className="size-4" />}
-            onClick={() => setConfirmOpen(true)}
-            disabled={Boolean(pending)}
-            title={pending ? `Version ${pending.version} is still being evaluated` : undefined}
-          >
-            Submit for review
+          <Button size="sm" variant="ghost" className="lg:hidden" icon={<BookOpen className="size-4" />} onClick={() => setBriefOpen(true)} aria-label="Brief & hints">
+            <span className="hidden sm:inline">Brief & hints</span>
           </Button>
+          <SaveIndicator state={autosave.state} savedAt={autosave.savedAt} onRetry={() => void autosave.saveNow()} />
+          <Tooltip
+            content={
+              pending ? (
+                `Version ${pending.version} is still being evaluated`
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  Shortcut <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd>
+                </span>
+              )
+            }
+            side="bottom"
+          >
+            <span className="inline-flex">
+              <Button variant="primary" icon={<Send className="size-4" />} onClick={() => setConfirmOpen(true)} disabled={Boolean(pending)}>
+                <span>
+                  Submit<span className="hidden sm:inline"> for review</span>
+                </span>
+              </Button>
+            </span>
+          </Tooltip>
         </div>
       </div>
 
@@ -161,13 +198,13 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
             ))}
           </TabsList>
           <TabsContent value="classes" className="flex min-h-0 flex-1 flex-col bg-surface outline-none data-[state=inactive]:hidden">
-            <ClassesPanel design={design} dispatch={dispatch} />
+            <ClassesPanel design={design} dispatch={dispatch} focus={tab === 'classes' ? focus : null} />
           </TabsContent>
           <TabsContent value="relationships" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
             <RelationshipsPanel design={design} dispatch={dispatch} />
           </TabsContent>
           <TabsContent value="traceability" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
-            <TraceabilityPanel problem={problem} design={design} dispatch={dispatch} />
+            <TraceabilityPanel problem={problem} design={design} dispatch={dispatch} focus={tab === 'traceability' ? focus : null} />
           </TabsContent>
           <TabsContent value="patterns" className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
             <PatternsPanel design={design} dispatch={dispatch} />
@@ -180,6 +217,10 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
           </TabsContent>
         </Tabs>
       </div>
+
+      <Sheet open={briefOpen} onOpenChange={setBriefOpen} title={problem.title}>
+        <WorkspaceSidebar problem={problem} attempt={attempt} design={design} />
+      </Sheet>
 
       <SubmitDialog
         open={confirmOpen}
@@ -223,15 +264,16 @@ function SaveIndicator({ state, savedAt, onRetry }: { state: SaveState; savedAt:
     <span className="inline-flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
       {state === 'saving' ? (
         <>
-          <Loader2 className="size-3.5 animate-spin" /> Saving…
+          <Loader2 className="size-3.5 animate-spin" /> <span className="hidden sm:inline">Saving…</span>
         </>
       ) : state === 'dirty' ? (
         <>
-          <span className="size-1.5 rounded-full bg-warning" /> Unsaved changes
+          <span className="size-1.5 rounded-full bg-warning" /> <span className="hidden sm:inline">Unsaved changes</span>
         </>
       ) : (
         <>
-          <CheckCircle2 className="size-3.5 text-success" /> {savedAt ? `Saved ${timeAgo(savedAt.toISOString())}` : 'All changes saved'}
+          <CheckCircle2 className="size-3.5 text-success" />
+          <span className="hidden sm:inline">{savedAt ? `Saved ${timeAgo(savedAt.toISOString())}` : 'All changes saved'}</span>
         </>
       )}
     </span>

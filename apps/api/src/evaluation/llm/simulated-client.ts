@@ -69,8 +69,9 @@ export function simulateReview(problem: Problem, design: DesignModel, facts: Fin
     const penalty = facts
       .filter((f) => f.criterionId === id && f.kind !== 'strength')
       .reduce((sum, f) => sum + DEDUCTION[f.severity], 0);
-    const bonus = facts.some((f) => f.criterionId === id && f.kind === 'strength') ? 0.5 : 0;
-    ratings[id] = 4.5 - penalty + bonus;
+    const bonus = facts.some((f) => f.criterionId === id && f.kind === 'strength') ? 0.4 : 0;
+    // An offline heuristic should not hand out perfect marks: base 4, +0.4 for a recognised strength.
+    ratings[id] = 4 - penalty + bonus;
   }
   const responsibilityWords = design.entities.flatMap((e) => e.responsibilities).map(wordCount);
   const avgWords = responsibilityWords.length
@@ -79,19 +80,29 @@ export function simulateReview(problem: Problem, design: DesignModel, facts: Fin
   if (avgWords > 0 && avgWords < 4) ratings.responsibilities -= 0.75;
   const abstractions = design.entities.filter((e) => index.isAbstraction(e));
   const polymorphic = abstractions.filter((a) => index.implementorsOf(a.name).length >= 2);
-  if (polymorphic.length >= 2) ratings.extensibility += 0.5;
+  if (polymorphic.length >= 2) ratings.extensibility += 0.3;
 
   const findings: AiReview['findings'] = [];
 
-  // 1. The hub class: most designs have an orchestrator that is at risk of bloating.
-  const hub = [...design.entities].sort((a, b) => index.degree(b.name) - index.degree(a.name))[0];
-  if (hub && index.degree(hub.name) >= 4) {
+  // 1. The orchestrator: the concrete class that *uses/owns* the most collaborators
+  //    (outgoing non-inheritance edges). Being a popular parent class does not count.
+  const outgoing = (name: string) =>
+    new Set(
+      index
+        .resolvedRelationships()
+        .filter((r) => r.type !== 'inheritance' && r.type !== 'implementation' && r.from.toLowerCase() === name.toLowerCase())
+        .map((r) => r.to.toLowerCase()),
+    ).size;
+  const hub = design.entities
+    .filter((e) => e.kind === 'class')
+    .sort((a, b) => outgoing(b.name) - outgoing(a.name))[0];
+  if (hub && outgoing(hub.name) >= 3) {
     findings.push({
       criterionId: 'responsibilities',
       kind: 'suggestion',
       severity: 'minor',
-      title: `Keep ${hub.name} a coordinator`,
-      message: `${hub.name} talks to ${index.degree(hub.name)} classes, so it is the natural orchestrator of the main flow. That is a good place for workflow, but a risky place for business rules.`,
+      title: 'Keep the orchestrator thin',
+      message: `${hub.name} uses or owns ${outgoing(hub.name)} collaborators, so it is the natural orchestrator of the main flow. That is a good place for workflow, but a risky place for business rules.`,
       suggestion: `Let ${hub.name} sequence the steps and delegate each decision (selection, pricing, validation) to the collaborator that owns it.`,
       entities: [hub.name],
     });
@@ -212,7 +223,7 @@ function rationaleFor(id: CriterionId, rating: number, facts: Finding[]): string
   const relevant = facts.filter((f) => f.criterionId === id);
   const issues = relevant.filter((f) => f.kind === 'issue');
   const strengths = relevant.filter((f) => f.kind === 'strength');
-  if (rating >= 4 && strengths[0]) return `${strengths[0].title}.${issues.length ? ` Minor gaps remain: ${issues[0]!.title.toLowerCase()}.` : ''}`;
-  if (issues[0]) return `Held back mainly by: ${issues[0].title.toLowerCase()}.`;
+  if (rating >= 4 && strengths[0]) return `${strengths[0].title}.${issues.length ? ` Remaining gap: ${issues[0]!.title}.` : ''}`;
+  if (issues[0]) return `Held back mainly by: ${issues[0].title}.`;
   return rating >= 4 ? 'Solid, with no significant gaps found.' : 'Acceptable, but could be made more explicit.';
 }

@@ -26,11 +26,30 @@ export function MermaidView({ source, className }: { source: string; className?:
       try {
         const mermaid = await loadMermaid();
         if (initializedTheme !== theme) {
+          // Derive the diagram palette from the app's design tokens so it matches both themes.
+          const css = getComputedStyle(document.documentElement);
+          const token = (name: string) => css.getPropertyValue(name).trim();
           mermaid.initialize({
             startOnLoad: false,
             securityLevel: 'strict',
-            theme: theme === 'dark' ? 'dark' : 'neutral',
-            fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+            theme: 'base',
+            fontFamily: "'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif",
+            themeVariables: {
+              darkMode: theme === 'dark',
+              background: token('--surface'),
+              mainBkg: token('--surface'),
+              primaryColor: token('--surface'),
+              primaryTextColor: token('--fg'),
+              primaryBorderColor: token('--primary'),
+              secondaryColor: token('--surface-2'),
+              tertiaryColor: token('--surface-2'),
+              lineColor: token('--muted'),
+              textColor: token('--fg-2'),
+              classText: token('--fg'),
+              nodeBorder: token('--primary'),
+              edgeLabelBackground: token('--surface-2'),
+              fontSize: '14px',
+            },
             class: { hideEmptyMembersBox: true },
           });
           initializedTheme = theme;

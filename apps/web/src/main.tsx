@@ -7,13 +7,12 @@ import { ApiError } from './api/client';
 import { AppShell } from './components/app-shell';
 import { RouteErrorBoundary } from './components/error-view';
 import { TooltipProvider } from './components/ui/tooltip';
-import { ComparePage } from './pages/compare-page';
 import { NotFoundPage } from './pages/not-found-page';
-import { ProblemPage } from './pages/problem-page';
 import { ProblemsPage } from './pages/problems-page';
-import { ProgressPage } from './pages/progress-page';
-import { SubmissionPage } from './pages/submission-page';
-import { WorkspacePage } from './pages/workspace-page';
+// Fonts are self-hosted: no third-party requests, works offline and behind strict proxies.
+import '@fontsource-variable/inter';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -35,11 +34,12 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <ProblemsPage /> },
-      { path: 'problems/:problemId', element: <ProblemPage /> },
-      { path: 'attempts/:attemptId', element: <WorkspacePage /> },
-      { path: 'submissions/:submissionId', element: <SubmissionPage /> },
-      { path: 'compare', element: <ComparePage /> },
-      { path: 'progress', element: <ProgressPage /> },
+      // Route-level code splitting keeps the first load small; each page loads on demand.
+      { path: 'problems/:problemId', lazy: async () => ({ Component: (await import('./pages/problem-page')).ProblemPage }) },
+      { path: 'attempts/:attemptId', lazy: async () => ({ Component: (await import('./pages/workspace-page')).WorkspacePage }) },
+      { path: 'submissions/:submissionId', lazy: async () => ({ Component: (await import('./pages/submission-page')).SubmissionPage }) },
+      { path: 'compare', lazy: async () => ({ Component: (await import('./pages/compare-page')).ComparePage }) },
+      { path: 'progress', lazy: async () => ({ Component: (await import('./pages/progress-page')).ProgressPage }) },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
