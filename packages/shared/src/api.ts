@@ -122,6 +122,23 @@ export interface AchievementDTO {
   progress?: { current: number; target: number };
 }
 
+/** A curveball aimed at the weakest point of change in a submitted design. */
+export interface AdaptiveCurveballDTO {
+  id: 'adaptive';
+  title: string;
+  prompt: string;
+  variationPoints: string[];
+  /** Why this one: the point of change it targets and how the design handles it today. */
+  target: {
+    variationPointId: string;
+    name: string;
+    status: 'missing' | 'no-implementations' | 'covered';
+    /** The class that currently holds this behaviour, if any. */
+    heldBy: string | null;
+  };
+  wordedBy: 'ai' | 'template';
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
 }

@@ -50,12 +50,15 @@ const shot = (page, name, fullPage = true) => page.screenshot({ path: `${OUT}${n
 // Accessibility: run axe-core on a page and record serious/critical WCAG A/AA violations.
 const axePath = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 async function audit(page, label) {
+  // Measure toasts at rest: mid fade-in, their colours are blends that no one reads.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || !(a.effect?.target instanceof Element) || !a.effect.target.closest('[data-sonner-toast]')), null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(450); // sonner enters with a CSS transition, not an animation
   await page.addScriptTag({ path: axePath });
   const violations = await page.evaluate(async () => {
     const result = await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] });
     return result.violations
       .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-      .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
+      .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.slice(0, 3).map((n) => `${n.target.join(' ')}${n.any?.[0]?.message ? ` (${n.any[0].message})` : ''}`).join(' | ')}`);
   });
   for (const v of violations) problems.push(`[a11y] ${label}: ${v}`);
 }
@@ -209,6 +212,7 @@ await page.getByRole('dialog').getByRole('button', { name: 'Submit', exact: true
 await page.getByText(/Reviewing version 1/).waitFor();
 await shot(page, '12-evaluating', false);
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
+await page.getByText('Achievement unlocked: First blueprint').waitFor({ timeout: 8000 });
 await page.waitForTimeout(800);
 await page.getByText('Your diagram', { exact: true }).scrollIntoViewIfNeeded();
 await page.locator('.react-flow__node').first().waitFor();
@@ -269,6 +273,18 @@ await page.getByTestId('call-label').first().waitFor();
 await page.waitForTimeout(400);
 await page.getByText('Your diagram', { exact: true }).scrollIntoViewIfNeeded();
 await shot(page, '14b-feedback-walkthrough', false);
+
+step('Aim a curveball at the design');
+await page.getByRole('button', { name: /Aim one at my design/ }).click();
+await page.getByRole('radio', { name: /Tailored/ }).waitFor();
+await page.getByRole('radio', { name: /Tailored/ }).scrollIntoViewIfNeeded();
+await page.waitForTimeout(300);
+await shot(page, '14c-adaptive-curveball', false);
+await audit(page, 'adaptive curveball');
+await page.getByRole('button', { name: 'Take this curveball' }).click();
+await page.getByRole('status').filter({ hasText: /Curveball: A new/ }).waitFor();
+await page.goBack();
+await page.getByText('Rubric breakdown').waitFor();
 
 step('Compare');
 await page.getByRole('button', { name: /Compare with v1/ }).click();

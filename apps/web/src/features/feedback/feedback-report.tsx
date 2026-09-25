@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import type { EvaluationReport, ProblemDTO, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
-import { CRITERIA, GRADE_LABELS } from '@blueprint/shared';
-import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Sparkles, Timer, Wrench, Zap } from 'lucide-react';
-import { curveballFor, IMPACT_VERDICT_TEXT } from '@blueprint/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AdaptiveCurveballDTO, EvaluationReport, ProblemDTO, SubmissionDTO, SubmissionSummaryDTO } from '@blueprint/shared';
+import { challengeCurveball, CRITERIA, curveballFor, GRADE_LABELS, IMPACT_VERDICT_TEXT } from '@blueprint/shared';
+import { ArrowRight, CheckCircle2, ChevronDown, Compass, Network, GitCompareArrows, ListChecks, Crosshair, Loader2, Sparkles, Timer, Wrench, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api, queryKeys } from '@/api/client';
@@ -121,7 +121,7 @@ export function FeedbackReport({
       </div>
 
       {curveballResponse && impact && problem && (
-        <CurveballResult curveball={curveballFor(problem.curveballs, challenge?.curveballId)!} impact={impact} baseVersion={previous!.version} />
+        <CurveballResult curveball={challengeCurveball(problem.curveballs, challenge)!} impact={impact} baseVersion={previous!.version} />
       )}
 
       {problem && submission.draft.design.entities.length > 0 && (
@@ -425,6 +425,37 @@ function CurveballOffer({ problem, submission, played }: { problem: ProblemDTO; 
   const firstUnplayed = problem.curveballs.find((c) => !played.has(c.id)) ?? problem.curveballs[0]!;
   const [chosen, setChosen] = useState(firstUnplayed.id);
   const variationName = (id: string) => problem.variationPoints.find((v) => v.id === id)?.name ?? id;
+  const queryClient = useQueryClient();
+  const generate = useMutation({
+    mutationFn: () => api.adaptiveCurveball(submission.id),
+    onSuccess: () => setChosen('adaptive'),
+    onError: (e) => toast.error('Could not aim a curveball', { description: e.message }),
+  });
+  const adaptive = generate.data;
+  // A generated curveball carries its own text, so it is written into the draft before opening the editor.
+  const takeAdaptive = useMutation({
+    mutationFn: async (curveball: AdaptiveCurveballDTO) => {
+      const attempt = await api.attempt(submission.attemptId);
+      const draft = {
+        ...attempt.draft,
+        challenge: {
+          kind: 'curveball' as const,
+          fromVersion: submission.version,
+          curveballId: 'adaptive',
+          custom: { title: curveball.title, prompt: curveball.prompt, variationPoints: curveball.variationPoints },
+          acceptedAt: new Date().toISOString(),
+        },
+      };
+      await api.saveDraft(attempt.id, draft);
+      queryClient.setQueryData(queryKeys.attempt(attempt.id), { ...attempt, draft });
+    },
+    onSuccess: () => navigate(`/attempts/${submission.attemptId}?tab=canvas`),
+    onError: (e) => toast.error('Could not start the curveball', { description: e.message }),
+  });
+  const take = () => {
+    if (chosen === 'adaptive' && adaptive) takeAdaptive.mutate(adaptive);
+    else navigate(`/attempts/${submission.attemptId}?tab=canvas&curveball=${submission.version}&cb=${chosen}`);
+  };
   return (
     <Card className="relative overflow-hidden border-ai/30">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--ai-soft),transparent_60%)]" aria-hidden />
@@ -443,12 +474,14 @@ function CurveballOffer({ problem, submission, played }: { problem: ProblemDTO; 
             variant="primary"
             className="shrink-0 bg-ai hover:bg-ai/90"
             icon={<Zap className="size-4" />}
-            onClick={() => navigate(`/attempts/${submission.attemptId}?tab=canvas&curveball=${submission.version}&cb=${chosen}`)}
+            onClick={take}
+            loading={takeAdaptive.isPending}
+            disabled={chosen === 'adaptive' && !adaptive}
           >
             Take this curveball
           </Button>
         </div>
-        <div role="radiogroup" aria-label="Choose a curveball" className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div role="radiogroup" aria-label="Choose a curveball" className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           {problem.curveballs.map((c) => (
             <button
               key={c.id}
@@ -475,6 +508,46 @@ function CurveballOffer({ problem, submission, played }: { problem: ProblemDTO; 
               </span>
             </button>
           ))}
+          {adaptive ? (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={chosen === 'adaptive'}
+              onClick={() => setChosen('adaptive')}
+              className={cn(
+                'flex flex-col rounded-xl border bg-surface p-3.5 text-left transition',
+                chosen === 'adaptive' ? 'border-ai ring-2 ring-ai/30' : 'border-border hover:border-border-strong',
+              )}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-[13.5px] font-semibold text-fg">{adaptive.title}</span>
+                <Badge tone="ai">{adaptive.wordedBy === 'ai' ? 'AI' : 'Tailored'}</Badge>
+              </span>
+              <span className="mt-1 line-clamp-4 text-[12.5px] leading-relaxed text-fg-2">{adaptive.prompt}</span>
+              <span className="mt-2 text-[11.5px] leading-snug text-muted">
+                Aimed at {adaptive.target.name.toLowerCase()}:{' '}
+                {adaptive.target.status === 'missing'
+                  ? `your design has no abstraction for it${adaptive.target.heldBy ? ` (it lives in ${adaptive.target.heldBy})` : ''}.`
+                  : adaptive.target.status === 'no-implementations'
+                    ? `${adaptive.target.heldBy} has no implementations yet.`
+                    : `your least-exercised seam (${adaptive.target.heldBy}).`}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => generate.mutate()}
+              disabled={generate.isPending}
+              className="flex flex-col items-start justify-center gap-2 rounded-xl border border-dashed border-ai/50 bg-surface/60 p-3.5 text-left transition hover:border-ai hover:bg-ai-soft/40"
+            >
+              <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ai-soft-fg">
+                {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <Crosshair className="size-4" />} Aim one at my design
+              </span>
+              <span className="text-[12.5px] leading-relaxed text-muted">
+                A curveball that targets the point of change your design is least ready for.
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </Card>

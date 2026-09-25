@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
-import { curveballFor, isTerminal } from '@blueprint/shared';
+import { challengeCurveball, curveballFor, isTerminal } from '@blueprint/shared';
 import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, ChevronRight, CloudOff, Keyboard, Loader2, Send, X, XCircle, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -109,7 +109,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
       ? attempt.submissions.find((s) => s.version === challenge.fromVersion)
       : undefined;
   const impact = useImpact(curveballBase?.id, design);
-  const curveball = challenge ? curveballFor(problem.curveballs, challenge.curveballId) : undefined;
+  const curveball = challengeCurveball(problem.curveballs, challenge);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);

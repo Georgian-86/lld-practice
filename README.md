@@ -15,7 +15,9 @@ actually reach that one?), and turned into a sequence diagram. Edits can be
 undone and redone (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>). Patterns,
 trade-offs and an extension-scenario answer complete the submission. After
 feedback, the learner can **take a curveball**: one of three change requests per
-problem, each aimed at a likely point of change. The next report measures its **blast radius**: which classes were
+problem, each aimed at a likely point of change, or one **aimed at their own
+design**: the point of change their design is least ready for, worded by the AI
+reviewer when a key is set. The next report measures its **blast radius**: which classes were
 added, which existing classes had to change (and how), and which stayed untouched.
 It shows this on the diagram, gives an open/closed verdict, and names the seams that
 paid off (e.g. *CardPayment plugged into your existing PaymentProcessor*). A

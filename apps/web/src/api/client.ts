@@ -1,4 +1,5 @@
 import type {
+  AdaptiveCurveballDTO,
   ApiErrorBody,
   AttemptDTO,
   ComparisonDTO,
@@ -87,6 +88,8 @@ export const api = {
       body: json({ draft }),
     }),
   submission: (id: string) => request<SubmissionDTO>(`/submissions/${encodeURIComponent(id)}`),
+  adaptiveCurveball: (submissionId: string) =>
+    request<AdaptiveCurveballDTO>(`/submissions/${encodeURIComponent(submissionId)}/curveball`, { method: 'POST' }),
   retry: (id: string) => request<SubmissionDTO>(`/submissions/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
   lint: (problemId: string, design: DesignModel) =>
     request<{ findings: Finding[] }>('/lint', { method: 'POST', body: json({ problemId, design }) }),

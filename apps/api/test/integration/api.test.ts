@@ -253,3 +253,33 @@ describe('failure and edge cases', () => {
     expect((await getSubmission(t, sub.id)).status).toBe('evaluated');
   });
 });
+
+describe('adaptive curveball over HTTP', () => {
+  let t: TestApp;
+  beforeEach(async () => {
+    t = await createTestApp();
+  });
+  afterEach(async () => {
+    await t.app.close();
+  });
+
+  it('aims a curveball at the submitted design, offline wording, owner only', async () => {
+    const attempt = await startAttempt(t);
+    const design = goodParkingDesign();
+    design.entities = design.entities.filter((e) => e.name !== 'PaymentProcessor' && e.name !== 'CardPayment');
+    design.relationships = design.relationships.filter((r) => ![r.from, r.to].some((n) => n === 'PaymentProcessor' || n === 'CardPayment'));
+    const submission = (await submit(t, attempt.id, design)).json() as SubmissionDTO;
+
+    const res = await t.app.inject({ method: 'POST', url: `/api/submissions/${submission.id}/curveball`, headers: LEARNER });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      id: 'adaptive',
+      variationPoints: ['payment'],
+      target: { variationPointId: 'payment', status: 'missing' },
+      wordedBy: 'template',
+    });
+
+    const other = await t.app.inject({ method: 'POST', url: `/api/submissions/${submission.id}/curveball`, headers: OTHER_LEARNER });
+    expect(other.statusCode).toBe(404);
+  });
+});
