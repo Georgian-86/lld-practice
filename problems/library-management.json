@@ -1,0 +1,218 @@
+{
+  "id": "library-management",
+  "title": "Library Management",
+  "difficulty": "medium",
+  "estimatedMinutes": 50,
+  "summary": "Design a library system for members to search, borrow, reserve and return books, with fines for late returns.",
+  "description": "A public library wants to replace its paper records.\n\nThe library owns many **physical copies** of each **book title**. **Members** can search the catalogue, **borrow** available copies, **reserve** titles that are all checked out, and **return** them. Late returns incur a **fine**. Librarians add books and manage members. When a reserved title comes back, the waiting member is **notified**.\n\nFocus on the difference between a *book* and a *copy*, on who enforces the borrowing rules, and on how notifications and fines can evolve.",
+  "tags": [
+    "Modelling",
+    "Observer",
+    "Strategy"
+  ],
+  "functionalRequirements": [
+    {
+      "id": "FR-1",
+      "text": "The catalogue stores book titles (ISBN, title, authors) and their physical copies."
+    },
+    {
+      "id": "FR-2",
+      "text": "Members can search the catalogue by title, author or subject."
+    },
+    {
+      "id": "FR-3",
+      "text": "A member can borrow up to 5 copies at a time, each for 14 days."
+    },
+    {
+      "id": "FR-4",
+      "text": "A member can reserve a title when no copy is available; reservations are served first-come-first-served."
+    },
+    {
+      "id": "FR-5",
+      "text": "Returning a copy late creates a fine; members with unpaid fines cannot borrow."
+    },
+    {
+      "id": "FR-6",
+      "text": "When a reserved title is returned, the next member in the queue is notified."
+    }
+  ],
+  "nonFunctionalRequirements": [
+    {
+      "id": "NFR-1",
+      "text": "Borrowing rules (limits, loan period) differ for student and faculty members and may change."
+    },
+    {
+      "id": "NFR-2",
+      "text": "New notification channels (SMS, push) can be added without changing lending code."
+    }
+  ],
+  "constraints": [
+    "Single branch.",
+    "Authentication is out of scope."
+  ],
+  "coreConcepts": [
+    {
+      "name": "Book",
+      "synonyms": [
+        "title",
+        "booktitle",
+        "bookinfo",
+        "catalogitem"
+      ],
+      "essential": true
+    },
+    {
+      "name": "BookCopy",
+      "synonyms": [
+        "copy",
+        "bookitem",
+        "item",
+        "physicalcopy"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Member",
+      "synonyms": [
+        "user",
+        "patron",
+        "borrower",
+        "account"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Loan",
+      "synonyms": [
+        "lending",
+        "borrowing",
+        "checkout",
+        "issue",
+        "bookloan",
+        "borrowrecord"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Reservation",
+      "synonyms": [
+        "hold",
+        "reserve",
+        "booking",
+        "waitlist"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Fine",
+      "synonyms": [
+        "penalty",
+        "charge",
+        "fee"
+      ],
+      "essential": false
+    },
+    {
+      "name": "Catalog",
+      "synonyms": [
+        "catalogue",
+        "search",
+        "searchservice",
+        "library",
+        "inventory"
+      ],
+      "essential": false
+    },
+    {
+      "name": "Notification",
+      "synonyms": [
+        "notifier",
+        "notificationservice",
+        "alert",
+        "observer"
+      ],
+      "essential": false
+    }
+  ],
+  "variationPoints": [
+    {
+      "id": "policy",
+      "name": "Borrowing policy",
+      "description": "Limits and loan periods differ by member type and change over time.",
+      "keywords": [
+        "policy",
+        "rule",
+        "rules",
+        "limit",
+        "membertype",
+        "lending"
+      ]
+    },
+    {
+      "id": "fine",
+      "name": "Fine calculation",
+      "description": "Per-day fines, caps, grace periods.",
+      "keywords": [
+        "fine",
+        "penalty",
+        "calculator",
+        "fee"
+      ]
+    },
+    {
+      "id": "notification",
+      "name": "Notification channel",
+      "description": "Email today; SMS and push later.",
+      "keywords": [
+        "notification",
+        "notifier",
+        "channel",
+        "observer",
+        "listener",
+        "sender",
+        "email",
+        "sms"
+      ]
+    }
+  ],
+  "extensionScenario": {
+    "prompt": "The library adds e-books with unlimited simultaneous loans but a 7-day licence, plus SMS notifications. What changes in your model?",
+    "keywords": [
+      "ebook",
+      "digital",
+      "copy",
+      "policy",
+      "strategy",
+      "notification",
+      "channel",
+      "interface",
+      "inheritance",
+      "composition"
+    ]
+  },
+  "hints": [
+    {
+      "level": 1,
+      "title": "Book vs copy",
+      "text": "A Book is the title (ISBN, authors). A BookCopy is the physical thing on a shelf with a barcode and status. Loans reference copies; reservations reference books."
+    },
+    {
+      "level": 2,
+      "title": "Who enforces the rules?",
+      "text": "Avoid putting borrowing limits inside Member. A LendingService (or Library) asks a BorrowingPolicy for the rules of this member type, so faculty/student rules can change independently."
+    },
+    {
+      "level": 3,
+      "title": "Decouple notifications",
+      "text": "When a copy is returned, publish an event. A ReservationQueue/NotificationService subscribes and notifies through a NotificationChannel interface (Email, SMS)."
+    }
+  ],
+  "rubric": {
+    "requirements": 20,
+    "modelling": 25,
+    "responsibilities": 15,
+    "relationships": 15,
+    "extensibility": 15,
+    "tradeoffs": 10
+  }
+}

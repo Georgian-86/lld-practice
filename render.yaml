@@ -1,0 +1,19 @@
+# One-click deploy on Render (Blueprint). Uses the Dockerfile; SQLite lives on a persistent disk.
+services:
+  - type: web
+    name: blueprint-lld
+    runtime: docker
+    plan: starter # persistent disks need a paid instance
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      # Set ONE of these in the dashboard (never commit keys). Without either, the offline reviewer is used.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

@@ -1,0 +1,273 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Components use semantic names (bg-surface, text-muted, …);
+ * themes only redefine the raw variables below.
+ */
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #f3f4f7;
+  --surface-3: #e9ebf0;
+  --border: #e3e6ec;
+  --border-strong: #cfd4dd;
+  --fg: #0f1729;
+  --fg-2: #344054;
+  --muted: #556070;
+  --subtle: #667085;
+
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-solid: #4f46e5;
+  --primary-solid-hover: #4338ca;
+  --primary-fg: #ffffff;
+  --primary-soft: #eef0ff;
+  --primary-soft-fg: #3730a3;
+
+  --success: #047857;
+  --success-soft: #e7f8f1;
+  --success-soft-fg: #047857;
+  --warning: #b45309;
+  --warning-soft: #fff5e1;
+  --warning-soft-fg: #b45309;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --danger-soft-fg: #b91c1c;
+  --info: #0369a1;
+  --info-soft: #e6f4fb;
+  --info-soft-fg: #0369a1;
+  --ai: #7c3aed;
+  --ai-soft: #f3edff;
+  --ai-soft-fg: #6d28d9;
+
+  --ring: rgb(79 70 229 / 0.35);
+  --shadow-color: 220 40% 20%;
+
+  /* Diagram canvas */
+  --canvas-bg: #f5f6f9;
+  --canvas-dot: #cfd4dd;
+  --uml-line: #475467;
+  --uml-border: #c7cdd8;
+  --minimap-mask: rgb(245 246 249 / 0.7);
+  --grid-line: rgb(79 70 229 / 0.07);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b0f19;
+  --surface: #111827;
+  --surface-2: #161e2e;
+  --surface-3: #1f2937;
+  --border: #243044;
+  --border-strong: #334155;
+  --fg: #f3f5f9;
+  --fg-2: #d0d5dd;
+  --muted: #98a2b3;
+  --subtle: #8a94a6;
+
+  /* Text/accent primary is lighter than the filled-button primary so both pass AA. */
+  --primary: #8b85f7;
+  --primary-hover: #9590f8;
+  --primary-solid: #5850e6;
+  --primary-solid-hover: #4f46e5;
+  --primary-fg: #ffffff;
+  --primary-soft: #1e1b4b;
+  --primary-soft-fg: #c7c4ff;
+
+  --success: #10b981;
+  --success-soft: #0b2a22;
+  --success-soft-fg: #6ee7b7;
+  --warning: #f59e0b;
+  --warning-soft: #2e2208;
+  --warning-soft-fg: #fcd34d;
+  --danger: #f05252;
+  --danger-soft: #331214;
+  --danger-soft-fg: #fca5a5;
+  --info: #38bdf8;
+  --info-soft: #0b2536;
+  --info-soft-fg: #7dd3fc;
+  --ai: #a78bfa;
+  --ai-soft: #231a3d;
+  --ai-soft-fg: #c4b5fd;
+
+  --ring: rgb(109 102 242 / 0.45);
+  --shadow-color: 220 60% 2%;
+
+  --canvas-bg: #0b0f19;
+  --canvas-dot: #253045;
+  --uml-line: #a4adbd;
+  --uml-border: #334155;
+  --minimap-mask: rgb(11 15 25 / 0.7);
+  --grid-line: rgb(139 133 247 / 0.08);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-solid: var(--primary-solid);
+  --color-primary-solid-hover: var(--primary-solid-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-fg: var(--success-soft-fg);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-fg: var(--warning-soft-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-fg: var(--danger-soft-fg);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-fg: var(--info-soft-fg);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-soft-fg: var(--ai-soft-fg);
+  --color-ring: var(--ring);
+
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.06);
+  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.08), 0 1px 2px hsl(var(--shadow-color) / 0.04);
+  --shadow-md: 0 4px 12px -2px hsl(var(--shadow-color) / 0.1), 0 2px 4px -2px hsl(var(--shadow-color) / 0.06);
+  --shadow-lg: 0 16px 40px -8px hsl(var(--shadow-color) / 0.18), 0 4px 10px -4px hsl(var(--shadow-color) / 0.08);
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-scale-in: scale-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-slide-in-left: slide-in-left 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* Only opacity/scale: positioning is owned by the element's own `translate`. */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to { background-position: 400px 0; }
+}
+
+/* Home hero: a drafting grid, and a diagram that assembles itself. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+.blueprint-grid {
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.hero-rise {
+  opacity: 0;
+  transform-box: fill-box;
+  animation: rise 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.hero-draw {
+  stroke-dasharray: 320;
+  stroke-dashoffset: 320;
+  animation: draw 900ms ease-out forwards;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  body {
+    @apply bg-bg text-fg font-sans text-sm;
+    min-height: 100vh;
+  }
+  *,
+  ::before,
+  ::after {
+    @apply border-border;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .field {
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg shadow-xs outline-none transition placeholder:text-subtle;
+    @apply hover:border-border-strong focus:border-primary focus:ring-4 focus:ring-ring;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+    background-size: 800px 100%;
+    @apply animate-shimmer rounded-md;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* React Flow chrome, themed with our tokens */
+.blueprint-canvas .react-flow__controls {
+  @apply overflow-hidden rounded-lg border border-border shadow-md;
+}
+.blueprint-canvas .react-flow__controls-button {
+  @apply border-border bg-surface text-fg-2 hover:bg-surface-2;
+}
+.blueprint-canvas .react-flow__controls-button svg {
+  fill: currentColor;
+}
+.blueprint-canvas .react-flow__minimap {
+  @apply overflow-hidden rounded-lg border border-border shadow-md;
+  background: var(--surface);
+}
+.blueprint-canvas .react-flow__node.selected,
+.blueprint-canvas .react-flow__node:focus-visible {
+  outline: none;
+}
+.blueprint-canvas .react-flow__edge.selected,
+.blueprint-canvas .react-flow__edge:focus-visible {
+  outline: none;
+}

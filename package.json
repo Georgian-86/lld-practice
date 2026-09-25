@@ -1,0 +1,25 @@
+{
+  "name": "blueprint-lld",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Blueprint \u2014 a Low-Level Design practice platform with explainable feedback",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @blueprint/api\" \"npm run dev -w @blueprint/web\"",
+    "build": "npm run build -w @blueprint/web && npm run build -w @blueprint/api",
+    "start": "npm run start -w @blueprint/api",
+    "test": "npm run test -w @blueprint/shared && npm run test -w @blueprint/api && npm run test -w @blueprint/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "e2e": "npm run e2e -w @blueprint/web"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
+}

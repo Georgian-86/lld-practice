@@ -1,0 +1,219 @@
+{
+  "id": "parking-lot",
+  "title": "Parking Lot",
+  "difficulty": "easy",
+  "estimatedMinutes": 45,
+  "summary": "Model a multi-floor parking lot that issues tickets, assigns spots by vehicle size and charges on exit.",
+  "description": "A city-centre garage wants software to run its entrance and exit gates.\n\nThe garage has **several floors**, each with spots of different sizes. Drivers take a **ticket** at the entrance, the system finds a suitable free spot, and on exit the driver **pays** based on how long they stayed. Management expects pricing to change often (weekend rates, flat night rates, EV surcharges) and wants to add new vehicle types without rewriting the core.\n\nFocus on the **object model**: which classes exist, what each is responsible for, and how they collaborate for the *park* and *exit* flows. You do not need to design a database or REST API.",
+  "tags": [
+    "OOP basics",
+    "Strategy",
+    "Factory"
+  ],
+  "functionalRequirements": [
+    {
+      "id": "FR-1",
+      "text": "The lot has multiple floors; each floor has spots of types Compact, Regular and Large."
+    },
+    {
+      "id": "FR-2",
+      "text": "Supported vehicles are Motorcycle, Car and Truck; each can only use spots that fit it."
+    },
+    {
+      "id": "FR-3",
+      "text": "On entry, the system assigns a suitable free spot and issues a ticket with entry time."
+    },
+    {
+      "id": "FR-4",
+      "text": "On exit, the system calculates the fee from the ticket and accepts payment (cash or card)."
+    },
+    {
+      "id": "FR-5",
+      "text": "The display board at each floor shows the number of free spots per spot type."
+    },
+    {
+      "id": "FR-6",
+      "text": "When the lot is full for a vehicle type, entry is refused with a clear message."
+    }
+  ],
+  "nonFunctionalRequirements": [
+    {
+      "id": "NFR-1",
+      "text": "Two vehicles entering at the same time must never be assigned the same spot."
+    },
+    {
+      "id": "NFR-2",
+      "text": "Pricing rules must be changeable without modifying ticketing code."
+    }
+  ],
+  "constraints": [
+    "Single garage; no reservations.",
+    "Payment gateways are external systems — model only the interface you need."
+  ],
+  "coreConcepts": [
+    {
+      "name": "ParkingLot",
+      "synonyms": [
+        "garage",
+        "parkinggarage",
+        "lot"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Floor",
+      "synonyms": [
+        "level",
+        "parkingfloor",
+        "storey"
+      ],
+      "essential": true
+    },
+    {
+      "name": "ParkingSpot",
+      "synonyms": [
+        "spot",
+        "slot",
+        "space",
+        "bay",
+        "parkingslot",
+        "parkingspace"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Vehicle",
+      "synonyms": [
+        "car",
+        "automobile"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Ticket",
+      "synonyms": [
+        "parkingticket",
+        "token",
+        "pass"
+      ],
+      "essential": true
+    },
+    {
+      "name": "Payment",
+      "synonyms": [
+        "paymentprocessor",
+        "paymentgateway",
+        "transaction",
+        "bill",
+        "invoice",
+        "receipt"
+      ],
+      "essential": false
+    },
+    {
+      "name": "Gate",
+      "synonyms": [
+        "entrance",
+        "exit",
+        "entrypanel",
+        "exitpanel",
+        "terminal",
+        "entrygate",
+        "exitgate"
+      ],
+      "essential": false
+    },
+    {
+      "name": "DisplayBoard",
+      "synonyms": [
+        "display",
+        "board",
+        "displaypanel",
+        "signboard"
+      ],
+      "essential": false
+    }
+  ],
+  "variationPoints": [
+    {
+      "id": "pricing",
+      "name": "Fee calculation",
+      "description": "Pricing changes often (hourly, weekend, flat night, EV surcharge).",
+      "keywords": [
+        "pricing",
+        "price",
+        "fee",
+        "rate",
+        "tariff",
+        "charge",
+        "cost"
+      ]
+    },
+    {
+      "id": "allocation",
+      "name": "Spot allocation",
+      "description": "The rule for picking a spot (nearest to gate, lowest floor, fill evenly) may change.",
+      "keywords": [
+        "allocation",
+        "allocator",
+        "assign",
+        "assignment",
+        "spotfinder",
+        "finder",
+        "selection",
+        "selector"
+      ]
+    },
+    {
+      "id": "payment",
+      "name": "Payment method",
+      "description": "New payment methods (UPI, wallet) will be added.",
+      "keywords": [
+        "payment",
+        "pay",
+        "processor",
+        "gateway"
+      ]
+    }
+  ],
+  "extensionScenario": {
+    "prompt": "The garage is adding EV charging spots that charge an extra per-kWh fee and can only be used by electric vehicles. What changes in your design, and what stays untouched?",
+    "keywords": [
+      "electric",
+      "ev",
+      "charging",
+      "spot",
+      "pricing",
+      "strategy",
+      "subclass",
+      "decorator",
+      "open",
+      "closed"
+    ]
+  },
+  "hints": [
+    {
+      "level": 1,
+      "title": "Start from the nouns",
+      "text": "List the nouns in the requirements (lot, floor, spot, vehicle, ticket, payment, board). Most of them become classes. Then ask: who creates the ticket, and who knows where the free spots are?"
+    },
+    {
+      "level": 2,
+      "title": "Separate the policies",
+      "text": "Pricing and spot selection are policies that will change. Put each behind an interface (e.g. PricingStrategy, SpotAllocationStrategy) so ParkingLot delegates instead of containing if/else branches."
+    },
+    {
+      "level": 3,
+      "title": "Think about concurrency",
+      "text": "NFR-1 means spot assignment must be atomic. Name the one class that owns 'find and reserve a free spot' and say how it guards against two gates racing (lock per floor, synchronized allocator, or compare-and-set on the spot)."
+    }
+  ],
+  "rubric": {
+    "requirements": 20,
+    "modelling": 20,
+    "responsibilities": 20,
+    "relationships": 15,
+    "extensibility": 15,
+    "tradeoffs": 10
+  }
+}
