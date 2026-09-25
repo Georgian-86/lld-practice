@@ -3,7 +3,9 @@ services:
   - type: web
     name: blueprint-lld
     runtime: docker
-    plan: starter
+    plan: starter # persistent disks need a paid instance
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
     healthCheckPath: /api/health
     disk:
       name: data

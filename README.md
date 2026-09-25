@@ -52,6 +52,21 @@ docker build -t blueprint-lld .
 docker run -p 8080:8080 -v blueprint-data:/data -e ANTHROPIC_API_KEY=... blueprint-lld
 ```
 
+## Deploy (Render)
+
+The repo contains a `Dockerfile` and a Render Blueprint (`render.yaml`). The Blueprint
+defines one web service, with SQLite on a 1 GB persistent disk at `/data`.
+
+1. Push this branch, or merge it into the branch you deploy from.
+2. In Render: **New → Blueprint**, connect this repository, and pick that branch.
+3. When prompted, set `ANTHROPIC_API_KEY` to use Claude, or leave it empty to run
+   with the offline reviewer.
+4. **Apply.** Render builds the image and health-checks `/api/health`. The app is
+   then live at `https://blueprint-lld.onrender.com` (or the name you chose).
+
+Every push to that branch redeploys. Attempts and feedback survive redeploys
+because they live on the disk.
+
 ## Tests
 
 ```bash

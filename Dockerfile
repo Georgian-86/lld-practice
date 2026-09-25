@@ -24,8 +24,9 @@ RUN npm ci --omit=dev --workspace @blueprint/api --include-workspace-root=false 
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
 COPY problems problems
-RUN mkdir -p /data && chown -R node:node /data
-USER node
+# Runs as root on purpose: managed platforms (e.g. Render) mount persistent disks
+# root-owned at runtime, and SQLite must be able to write to /data.
+RUN mkdir -p /data
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://localhost:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
