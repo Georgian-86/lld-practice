@@ -73,5 +73,13 @@ export function normaliseDesign(design: DesignModel): DesignModel {
     tradeOffs: clean(design.tradeOffs),
     extensionAnswer: design.extensionAnswer.trim(),
     notes: design.notes.trim(),
+    flows: (design.flows ?? [])
+      .map((f) => ({
+        ...f,
+        steps: f.steps
+          .map((s) => ({ ...s, from: s.from.trim(), to: s.to.trim(), message: s.message.trim() }))
+          .filter((s) => s.from && s.to),
+      }))
+      .filter((f) => f.steps.length > 0),
   };
 }

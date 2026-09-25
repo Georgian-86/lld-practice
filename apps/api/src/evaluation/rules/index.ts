@@ -4,6 +4,7 @@ import { ExtensionScenarioRule, PatternJustificationRule, VariationPointRule } f
 import { CyclicDependencyRule, DanglingReferenceRule, HierarchyRule, IsolatedEntityRule } from './relationship-rules';
 import { RequirementConcentrationRule, RequirementCoverageRule } from './requirement-rules';
 import { GodClassRule, UndefinedResponsibilityRule } from './responsibility-rules';
+import { ScenarioRule } from './scenario-rules';
 import { TradeOffRule } from './tradeoff-rules';
 
 export function defaultRules(): DesignRule[] {
@@ -23,6 +24,7 @@ export function defaultRules(): DesignRule[] {
     new PatternJustificationRule(),
     new ExtensionScenarioRule(),
     new TradeOffRule(),
+    new ScenarioRule(),
   ];
 }
 
@@ -32,3 +34,4 @@ export * from './relationship-rules';
 export * from './requirement-rules';
 export * from './responsibility-rules';
 export * from './tradeoff-rules';
+export * from './scenario-rules';

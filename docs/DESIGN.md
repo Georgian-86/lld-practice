@@ -7,7 +7,7 @@ Machine, Elevator System), reads the brief, and builds a **structured design** i
 a workspace. The design has classes and interfaces with responsibilities,
 relationships, requirement traceability, patterns, trade-offs and an extension
 answer, with a live class diagram. Work autosaves. On submit, the design is
-snapshotted and **evaluated in the background**: 15 deterministic rules run first,
+snapshotted and **evaluated in the background**: 16 deterministic rules run first,
 then an AI reviewer grounded on their findings. The learner watches progress, then
 gets a report with a weighted rubric score, prioritised findings (each tagged
 *Rule* or *AI*, linking into the editor), valid alternative approaches, and a
@@ -126,13 +126,20 @@ relationships (coupling, ownership), **traceability** (the checkable form of
 "does the design meet the requirements"), patterns with a justification
 (intent, not name-dropping), trade-offs (reasoning), and an **extension scenario**
 answer (the interview's "what if" question, which tests extensibility directly).
+Optionally, **scenario walkthroughs**: for a requirement, the ordered calls
+between classes that carry it out (a sequence diagram). This makes collaboration
+checkable, because a class can only call a class it holds a relationship to.
 
 **Deterministic rules (facts):** requirement coverage and concentration,
 core-concept presence (synonym-aware, e.g. *Slot* ≈ *Spot*), design size, naming,
 god classes, classes without responsibilities, empty interfaces, dangling
 references, isolated classes, inheritance/ownership/usage cycles, hierarchy misuse
 and depth, **abstraction at each declared point of change**, pattern
-justification, extension answer specificity, and trade-off quality. Rules test
+justification, extension answer specificity, trade-off quality, and **scenario
+walkthroughs** (every call must follow a drawn relationship, possibly through an
+interface; the message must be a method the callee declares; the chain must not
+jump to a class nobody called). The walkthrough analysis lives in
+`packages/shared` so the canvas (live) and the server (scoring) agree. Rules test
 *properties*, never class names, which is how multiple valid designs are
 accommodated.
 

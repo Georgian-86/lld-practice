@@ -1,4 +1,4 @@
-import type { DesignModel, Draft, Entity, EntityKind, PatternUsage, Relationship } from '@blueprint/shared';
+import type { DesignModel, Draft, Entity, EntityKind, Flow, FlowStep, PatternUsage, Relationship } from '@blueprint/shared';
 import { nameKey } from '@blueprint/shared';
 import { newId } from '@/lib/format';
 
@@ -17,7 +17,13 @@ export type DraftAction =
   | { type: 'text/set'; field: 'extensionAnswer' | 'notes'; value: string }
   | { type: 'tradeoffs/set'; value: string[] }
   | { type: 'diagram/replace'; entities: Entity[]; relationships: Relationship[] }
-  | { type: 'layout/set'; positions: Record<string, { x: number; y: number }>; replace?: boolean };
+  | { type: 'layout/set'; positions: Record<string, { x: number; y: number }>; replace?: boolean }
+  | { type: 'flow/add'; flow: Flow }
+  | { type: 'flow/update'; id: string; patch: Partial<Pick<Flow, 'requirementId'>> }
+  | { type: 'flow/remove'; id: string }
+  | { type: 'flow/step-add'; flowId: string; step: FlowStep }
+  | { type: 'flow/step-update'; flowId: string; stepId: string; patch: Partial<Omit<FlowStep, 'id'>> }
+  | { type: 'flow/step-remove'; flowId: string; stepId: string };
 
 function withDesign(draft: Draft, update: (design: DesignModel) => DesignModel): Draft {
   return { ...draft, design: update(draft.design) };
@@ -73,6 +79,14 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
             Object.entries(d.requirementMap).map(([id, names]) => [id, replaceName(names, oldName, to)]),
           ),
           patterns: d.patterns.map((p) => ({ ...p, appliedTo: replaceName(p.appliedTo, oldName, to) })),
+          flows: (d.flows ?? []).map((f) => ({
+            ...f,
+            steps: f.steps.map((st) => ({
+              ...st,
+              from: nameKey(st.from) === nameKey(oldName) ? to : st.from,
+              to: nameKey(st.to) === nameKey(oldName) ? to : st.to,
+            })),
+          })),
         };
       });
 
@@ -93,6 +107,7 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
             Object.entries(d.requirementMap).map(([id, names]) => [id, names.filter((n) => !gone(n))]),
           ),
           patterns: d.patterns.map((p) => ({ ...p, appliedTo: p.appliedTo.filter((n) => !gone(n)) })),
+          flows: (d.flows ?? []).map((f) => ({ ...f, steps: f.steps.filter((st) => !gone(st.from) && !gone(st.to)) })),
         };
       });
       return draft.layout ? { ...next, layout } : next;
@@ -138,6 +153,38 @@ export function draftReducer(draft: Draft, action: DraftAction): Draft {
 
     case 'tradeoffs/set':
       return withDesign(draft, (d) => ({ ...d, tradeOffs: action.value }));
+
+    case 'flow/add':
+      return withDesign(draft, (d) => ({ ...d, flows: [...(d.flows ?? []), action.flow] }));
+
+    case 'flow/update':
+      return withDesign(draft, (d) => ({
+        ...d,
+        flows: (d.flows ?? []).map((f) => (f.id === action.id ? { ...f, ...action.patch } : f)),
+      }));
+
+    case 'flow/remove':
+      return withDesign(draft, (d) => ({ ...d, flows: (d.flows ?? []).filter((f) => f.id !== action.id) }));
+
+    case 'flow/step-add':
+      return withDesign(draft, (d) => ({
+        ...d,
+        flows: (d.flows ?? []).map((f) => (f.id === action.flowId ? { ...f, steps: [...f.steps, action.step] } : f)),
+      }));
+
+    case 'flow/step-update':
+      return withDesign(draft, (d) => ({
+        ...d,
+        flows: (d.flows ?? []).map((f) =>
+          f.id === action.flowId ? { ...f, steps: f.steps.map((st) => (st.id === action.stepId ? { ...st, ...action.patch } : st)) } : f,
+        ),
+      }));
+
+    case 'flow/step-remove':
+      return withDesign(draft, (d) => ({
+        ...d,
+        flows: (d.flows ?? []).map((f) => (f.id === action.flowId ? { ...f, steps: f.steps.filter((st) => st.id !== action.stepId) } : f)),
+      }));
 
     case 'layout/set':
       return { ...draft, layout: action.replace ? action.positions : { ...draft.layout, ...action.positions } };

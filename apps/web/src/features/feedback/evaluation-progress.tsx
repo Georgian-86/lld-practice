@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn';
 
 const STEPS = [
   { id: 'queued', label: 'Submitted', detail: 'Snapshot saved and queued for review' },
-  { id: 'rules', label: 'Design checks', detail: '15 deterministic rules' },
+  { id: 'rules', label: 'Design checks', detail: '16 deterministic rules' },
   { id: 'ai', label: 'AI review', detail: 'Qualitative judgement, grounded on the checks' },
   { id: 'scoring', label: 'Feedback', detail: 'Scoring against the rubric' },
 ] as const;

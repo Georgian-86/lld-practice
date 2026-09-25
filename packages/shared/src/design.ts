@@ -71,6 +71,26 @@ export const patternUsageSchema = z.object({
 });
 export type PatternUsage = z.infer<typeof patternUsageSchema>;
 
+/** One call in a scenario walkthrough: `from` asks `to` to do `message`. */
+export const flowStepSchema = z.object({
+  id: z.string().min(1).max(64),
+  from: shortText,
+  to: shortText,
+  message: shortText,
+});
+export type FlowStep = z.infer<typeof flowStepSchema>;
+
+/**
+ * A scenario walkthrough: the ordered calls that fulfil one requirement.
+ * Makes collaboration checkable: a class can only call what it knows about.
+ */
+export const flowSchema = z.object({
+  id: z.string().min(1).max(64),
+  requirementId: z.string().max(32),
+  steps: z.array(flowStepSchema).max(30),
+});
+export type Flow = z.infer<typeof flowSchema>;
+
 export const designModelSchema = z.object({
   entities: z.array(entitySchema).max(LIMITS.maxEntities),
   relationships: z.array(relationshipSchema).max(LIMITS.maxRelationships),
@@ -80,6 +100,8 @@ export const designModelSchema = z.object({
   tradeOffs: z.array(z.string().max(LIMITS.maxLongText)).max(LIMITS.maxListItems),
   extensionAnswer: longText,
   notes: longText,
+  /** Scenario walkthroughs. Optional so drafts saved before scenarios existed stay valid. */
+  flows: z.array(flowSchema).max(20).optional(),
 });
 export type DesignModel = z.infer<typeof designModelSchema>;
 
@@ -92,6 +114,7 @@ export function emptyDesign(): DesignModel {
     tradeOffs: [],
     extensionAnswer: '',
     notes: '',
+    flows: [],
   };
 }
 

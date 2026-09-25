@@ -105,6 +105,17 @@ await page.getByRole('menuitemradio', { name: /owns/ }).click();
 await page.locator('.react-flow__edge').first().waitFor();
 await page.getByTitle(/^FR-1:/).dragTo(canvasNode('Floor'));
 await canvasNode('Floor').getByText('FR-1').waitFor();
+
+step('Undo and redo on the canvas');
+await page.locator('.react-flow__pane').click({ position: { x: 20, y: 20 } });
+await page.keyboard.press('Control+z');
+await canvasNode('Floor').getByText('FR-1').waitFor({ state: 'detached' });
+await page.keyboard.press('Control+Shift+z');
+await canvasNode('Floor').getByText('FR-1').waitFor();
+await page.getByRole('button', { name: 'Undo' }).click();
+await canvasNode('Floor').getByText('FR-1').waitFor({ state: 'detached' });
+await page.getByRole('button', { name: 'Redo' }).click();
+await canvasNode('Floor').getByText('FR-1').waitFor();
 await page.getByRole('tab', { name: /Class list/ }).click();
 await page.getByRole('button', { name: 'Add', exact: true }).waitFor();
 // Wait for autosave to settle (debounce + request), not just for any "Saved" label.
@@ -155,6 +166,29 @@ await page.getByTitle('Arrange automatically').click();
 await page.waitForTimeout(1200);
 await shot(page, '10b-canvas-full', false);
 await audit(page, 'canvas with design');
+
+step('Scenario walkthrough: click classes in call order');
+const exactNode = (name) => page.locator('.react-flow__node').filter({ has: page.getByText(name, { exact: true }) }).first();
+await page.getByRole('button', { name: /Scenarios/ }).click();
+await page.getByLabel('Walk through a requirement').selectOption('FR-3');
+for (const name of ['EntryGate', 'ParkingLot', 'Floor']) {
+  await exactNode(name).getByText(name, { exact: true }).click();
+  await page.waitForTimeout(150);
+}
+await page.getByText('Every call is backed by your diagram').waitFor();
+if ((await page.getByTestId('call-label').count()) !== 2) throw new Error('expected 2 numbered calls on the canvas');
+await page.getByTestId('sequence-diagram').locator('svg[id^="mmd-"]').waitFor({ timeout: 15000 });
+// A call the diagram cannot support is flagged.
+await exactNode('Ticket').getByText('Ticket', { exact: true }).click();
+await page.getByText('Floor has no relationship to Ticket, so it cannot call it.').waitFor();
+await page.waitForTimeout(400);
+await shot(page, '10c-scenario', false);
+await audit(page, 'scenario mode');
+await page.getByRole('button', { name: 'Remove last call' }).click();
+await page.getByText('Every call is backed by your diagram').waitFor();
+await page.getByRole('button', { name: 'Leave scenario mode' }).click();
+await page.waitForTimeout(1200);
+await page.waitForFunction(() => !/Unsaved changes|Saving…/.test(document.body.innerText), null, { timeout: 8000 });
 
 step('Submit v1');
 await page.getByRole('button', { name: 'Submit for review' }).click();

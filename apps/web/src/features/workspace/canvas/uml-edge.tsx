@@ -3,17 +3,17 @@ import { BaseEdge, EdgeLabelRenderer, useInternalNode, type Edge, type EdgeProps
 import { cn } from '@/lib/cn';
 import { UML } from './uml';
 
-export type UmlEdgeData = { relationship: Relationship; parallelIndex: number; parallelCount: number };
+export type UmlEdgeData = { relationship: Relationship; parallelIndex: number; parallelCount: number; dimmed?: boolean };
 export type UmlEdgeType = Edge<UmlEdgeData, 'uml'>;
 
-function center(node: InternalNode) {
+export function center(node: InternalNode) {
   const w = node.measured.width ?? 0;
   const h = node.measured.height ?? 0;
   return { x: node.internals.positionAbsolute.x + w / 2, y: node.internals.positionAbsolute.y + h / 2, w, h };
 }
 
 /** Where the line from this node's centre towards `toward` crosses the node's border. */
-function borderPoint(node: InternalNode, toward: { x: number; y: number }) {
+export function borderPoint(node: InternalNode, toward: { x: number; y: number }) {
   const c = center(node);
   const dx = toward.x - c.x;
   const dy = toward.y - c.y;
@@ -73,12 +73,13 @@ export function UmlEdge({ id, source, target, data, selected }: EdgeProps<UmlEdg
         markerEnd={visual.end ? `url(#${visual.end})` : undefined}
         interactionWidth={18}
         style={{
+          opacity: data.dimmed ? 0.3 : 1,
           stroke: selected ? 'var(--primary)' : 'var(--uml-line)',
           strokeWidth: selected ? 2.2 : 1.6,
           strokeDasharray: visual.dashed ? '6 4' : undefined,
         }}
       />
-      {label && (
+      {label && !data.dimmed && (
         <EdgeLabelRenderer>
           <div
             className={cn(

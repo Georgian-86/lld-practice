@@ -14,6 +14,7 @@ import {
   PatternJustificationRule,
   RequirementConcentrationRule,
   RequirementCoverageRule,
+  ScenarioRule,
   TradeOffRule,
   UndefinedResponsibilityRule,
   VariationPointRule,
@@ -234,5 +235,40 @@ describe('TradeOffRule', () => {
     expect(titles).toContain('1 trade-off is a slogan, not a trade-off');
     d.tradeOffs = [];
     expect(run(new TradeOffRule(), d)[0]?.severity).toBe('major');
+  });
+});
+
+describe('ScenarioRule', () => {
+  const withFlow = (steps: [string, string, string][]) => {
+    const d = goodParkingDesign();
+    d.flows = [{ id: 'f', requirementId: 'FR-3', steps: steps.map(([from, to, message], i) => ({ id: `s${i}`, from, to, message })) }];
+    return d;
+  };
+
+  it('only nudges (info) when no scenario was walked through', () => {
+    const found = run(new ScenarioRule());
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ severity: 'info', kind: 'suggestion' });
+  });
+
+  it('credits a scenario whose calls all follow relationships', () => {
+    const d = withFlow([
+      ['EntryGate', 'ParkingLot', 'enter'],
+      ['ParkingLot', 'SpotAllocationStrategy', 'allocate(vehicle)'],
+      ['ParkingLot', 'PricingStrategy', 'fee(ticket)'],
+    ]);
+    expect(strengths(run(new ScenarioRule(), d)).map((f) => f.title)).toEqual(['FR-3 scenario runs end to end']);
+  });
+
+  it('flags a call the caller cannot make (major) and an undeclared method (minor)', () => {
+    const d = withFlow([
+      ['EntryGate', 'PricingStrategy', 'fee(ticket)'],
+      ['EntryGate', 'ParkingLot', 'teleport()'],
+    ]);
+    const found = issues(run(new ScenarioRule(), d));
+    expect(found.map((f) => [f.title, f.severity])).toEqual([
+      ['FR-3 scenario: EntryGate cannot reach PricingStrategy', 'major'],
+    ]);
+    // ParkingLot declares no methods in the fixture, so any message is accepted there.
   });
 });

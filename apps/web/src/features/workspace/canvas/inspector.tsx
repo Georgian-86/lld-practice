@@ -22,6 +22,8 @@ interface InspectorProps {
   onFocused: () => void;
   onFocusEntity: (name: string) => void;
   onClose: () => void;
+  /** Replaces the default content (e.g. the scenario panel). */
+  children?: React.ReactNode;
 }
 
 /** Right-hand panel: edits the selection, or lists live checks when nothing is selected. */
@@ -29,7 +31,9 @@ export function CanvasInspector(props: InspectorProps) {
   const { entity, relationship, dispatch } = props;
   return (
     <aside className="hidden w-[320px] shrink-0 flex-col border-l border-border bg-surface md:flex xl:w-[360px]" aria-label="Inspector">
-      {entity ? (
+      {props.children ? (
+        props.children
+      ) : entity ? (
         <EntityInspector {...props} entity={entity} />
       ) : relationship && dispatch ? (
         <RelationshipInspector relationship={relationship} dispatch={dispatch} design={props.design} onClose={props.onClose} />

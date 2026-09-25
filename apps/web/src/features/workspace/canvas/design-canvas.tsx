@@ -1,7 +1,7 @@
 import '@xyflow/react/dist/style.css';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
 import type { DesignModel, DiagramLayout, Entity, EntityKind, Finding, ProblemDTO, Relationship, RelationshipType } from '@blueprint/shared';
-import { nameKey } from '@blueprint/shared';
+import { analyseFlow, nameKey } from '@blueprint/shared';
 import {
   applyEdgeChanges,
   applyNodeChanges,
@@ -18,23 +18,27 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
-import { Check, ChevronDown, LayoutGrid, Maximize, Plus } from 'lucide-react';
+import { Check, ChevronDown, LayoutGrid, Maximize, Plus, Redo2, Route, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent } from 'react';
 import { toast } from 'sonner';
 import { useTheme } from '@/hooks/use-theme';
 import { cn } from '@/lib/cn';
 import { newId } from '@/lib/format';
-import { isMapped, type DraftAction } from '../draft-reducer';
+import { isMapped } from '../draft-reducer';
+import type { HistoryAction } from '../use-draft-history';
 import { KIND_LABELS, KindIcon } from '../kind-icon';
 import { ClassNode, type ClassNodeType } from './class-node';
 import { CanvasInspector } from './inspector';
+import { CallEdge, type CallEdgeType } from './call-edge';
 import { autoLayout, fillMissingPositions, findFreeSpot, NODE_WIDTH } from './layout';
+import { ScenarioPanel } from './scenario-panel';
 import { RELATIONSHIP_ORDER, RelationshipGlyph, UML, UmlMarkerDefs } from './uml';
 import { UmlEdge, type UmlEdgeType } from './uml-edge';
 import { issuesByEntity } from './use-live-checks';
 
 const nodeTypes = { class: ClassNode };
-const edgeTypes = { uml: UmlEdge };
+const edgeTypes = { uml: UmlEdge, call: CallEdge };
+type CanvasEdge = UmlEdgeType | CallEdgeType;
 const REQ_MIME = 'application/x-blueprint-requirement';
 
 export interface DesignCanvasProps {
@@ -42,7 +46,9 @@ export interface DesignCanvasProps {
   design: DesignModel;
   layout?: DiagramLayout;
   /** Omit for a read-only canvas (e.g. the feedback report). */
-  dispatch?: Dispatch<DraftAction>;
+  dispatch?: Dispatch<HistoryAction>;
+  /** Undo/redo for the editable canvas. */
+  history?: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };
   /** Live checks while editing, or the evaluation's findings when read-only. */
   findings?: Finding[] | null;
   checking?: boolean;
@@ -61,7 +67,7 @@ export function DesignCanvas(props: DesignCanvasProps) {
   );
 }
 
-function CanvasInner({ problem, design, layout, dispatch, findings, checking, focus, className }: DesignCanvasProps) {
+function CanvasInner({ problem, design, layout, dispatch, history, findings, checking, focus, className }: DesignCanvasProps) {
   const readOnly = !dispatch;
   const { theme } = useTheme();
   const flow = useReactFlow();
@@ -70,11 +76,14 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
   const [selection, setSelection] = useState<CanvasSelection>(null);
   const [focusName, setFocusName] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [scenarioMode, setScenarioMode] = useState(false);
+  const [activeFlowId, setActiveFlowId] = useState<string | null>(null);
+  const [callerId, setCallerId] = useState<string | null>(null);
 
   /* ------------------------------ positions ------------------------------ */
   const missing = useMemo(() => fillMissingPositions(design, layout), [design, layout]);
   useEffect(() => {
-    if (missing && dispatch) dispatch({ type: 'layout/set', positions: missing });
+    if (missing && dispatch) dispatch({ type: 'layout/set', positions: missing, transient: true });
   }, [missing, dispatch]);
   const positions = useMemo(() => ({ ...(missing ?? {}), ...(layout ?? {}) }), [missing, layout]);
 
@@ -93,6 +102,17 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
     return map;
   }, [design.requirementMap]);
 
+  /* ------------------------------ scenarios ------------------------------- */
+  const flows = useMemo(() => design.flows ?? [], [design.flows]);
+  const activeFlow = scenarioMode ? (flows.find((f) => f.id === activeFlowId) ?? flows[0]) : undefined;
+  const analyses = useMemo(() => new Map(flows.map((f) => [f.id, analyseFlow(design, f)])), [flows, design]);
+  const caller = design.entities.find((e) => e.id === callerId && e.name.trim());
+  const inFlow = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of activeFlow?.steps ?? []) for (const n of [s.from, s.to]) set.add(nameKey(n));
+    return set;
+  }, [activeFlow]);
+
   /* -------------------------------- nodes -------------------------------- */
   const [nodes, setNodes] = useState<ClassNodeType[]>([]);
   useEffect(() => {
@@ -106,7 +126,7 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
           id: entity.id,
           type: 'class',
           position: positions[entity.id] ?? existing?.position ?? { x: 0, y: 0 },
-          selected: selection?.kind === 'node' && selection.id === entity.id,
+          selected: !scenarioMode && selection?.kind === 'node' && selection.id === entity.id,
           draggable: !readOnly,
           connectable: !readOnly,
           deletable: !readOnly,
@@ -116,14 +136,15 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
             requirements: key ? (requirementsByEntity.get(key) ?? []).sort() : [],
             readOnly,
             dropTarget: dropTarget === entity.id,
+            scenario: !scenarioMode ? undefined : entity.id === caller?.id ? 'caller' : inFlow.has(key) ? 'in-flow' : 'idle',
           },
         };
       });
     });
-  }, [design.entities, positions, issues, requirementsByEntity, readOnly, dropTarget, selection]);
+  }, [design.entities, positions, issues, requirementsByEntity, readOnly, dropTarget, selection, scenarioMode, caller?.id, inFlow]);
 
   /* -------------------------------- edges -------------------------------- */
-  const [edges, setEdges] = useState<UmlEdgeType[]>([]);
+  const [edges, setEdges] = useState<CanvasEdge[]>([]);
   useEffect(() => {
     const resolved = design.relationships
       .map((r) => ({ r, source: idByName.get(nameKey(r.from)), target: idByName.get(nameKey(r.to)) }))
@@ -132,8 +153,7 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
     const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
     for (const x of resolved) pairCount.set(pairKey(x.source, x.target), (pairCount.get(pairKey(x.source, x.target)) ?? 0) + 1);
     const seen = new Map<string, number>();
-    setEdges(
-      resolved.map(({ r, source, target }) => {
+    const relationshipEdges = resolved.map(({ r, source, target }): UmlEdgeType => {
         const key = pairKey(source, target);
         const index = seen.get(key) ?? 0;
         seen.set(key, index + 1);
@@ -147,17 +167,44 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
           type: 'uml',
           selected: selection?.kind === 'edge' && selection.id === r.id,
           deletable: !readOnly,
-          data: { relationship: r, parallelIndex: flip === 1 ? index : count - 1 - index, parallelCount: count },
+          data: { relationship: r, parallelIndex: flip === 1 ? index : count - 1 - index, parallelCount: count, dimmed: scenarioMode },
         };
-      }),
-    );
-  }, [design.relationships, idByName, selection, readOnly]);
+      });
+
+    // Scenario mode: numbered calls drawn over the (dimmed) class diagram.
+    const callEdges: CallEdgeType[] = [];
+    if (activeFlow) {
+      const analysis = analyses.get(activeFlow.id);
+      const lanes = new Map<string, number>();
+      activeFlow.steps.forEach((step, i) => {
+        const source = idByName.get(nameKey(step.from));
+        const target = idByName.get(nameKey(step.to));
+        if (!source || !target) return;
+        const lane = `${source}>${target}`;
+        const parallelIndex = lanes.get(lane) ?? 0;
+        lanes.set(lane, parallelIndex + 1);
+        const a = analysis?.steps[i];
+        callEdges.push({
+          id: `call-${step.id}`,
+          source,
+          target,
+          type: 'call',
+          selectable: false,
+          deletable: false,
+          focusable: false,
+          zIndex: 5,
+          data: { index: i, message: step.message, ok: Boolean(a && a.problems.length === 0 && !analysis?.breaks.includes(i)), parallelIndex, parallelCount: 1 },
+        });
+      });
+    }
+    setEdges([...relationshipEdges, ...callEdges]);
+  }, [design.relationships, idByName, selection, readOnly, scenarioMode, activeFlow, analyses]);
 
   /* ------------------------------ interaction ---------------------------- */
   const onNodesChange = useCallback((changes: NodeChange<ClassNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
   }, []);
-  const onEdgesChange = useCallback((changes: EdgeChange<UmlEdgeType>[]) => {
+  const onEdgesChange = useCallback((changes: EdgeChange<CanvasEdge>[]) => {
     setEdges((es) => applyEdgeChanges(changes, es));
   }, []);
 
@@ -214,8 +261,8 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
     [dispatch],
   );
   const onEdgesDelete = useCallback(
-    (deleted: UmlEdgeType[]) => {
-      for (const e of deleted) dispatch?.({ type: 'relationship/remove', id: e.id });
+    (deleted: CanvasEdge[]) => {
+      for (const e of deleted) if (e.type === 'uml') dispatch?.({ type: 'relationship/remove', id: e.id });
       setSelection(null);
     },
     [dispatch],
@@ -240,6 +287,58 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
     dispatch({ type: 'entity/add', id, name, kind, position: spot });
     setSelection({ kind: 'node', id });
     setFocusName(id);
+  };
+
+  const toggleScenario = () => {
+    setScenarioMode((on) => !on);
+    setSelection(null);
+    const current = flows.find((f) => f.id === activeFlowId) ?? flows[0];
+    const last = current?.steps.at(-1);
+    setCallerId(last ? (idByName.get(nameKey(last.to)) ?? null) : null);
+  };
+  const selectFlow = (id: string) => {
+    setActiveFlowId(id);
+    const last = flows.find((f) => f.id === id)?.steps.at(-1);
+    setCallerId(last ? (idByName.get(nameKey(last.to)) ?? null) : null);
+  };
+  const createFlow = (requirementId: string) => {
+    if (!dispatch) return;
+    if (flows.length >= 20) {
+      toast.error('A design can have at most 20 walkthroughs');
+      return;
+    }
+    const id = newId('f');
+    dispatch({ type: 'flow/add', flow: { id, requirementId, steps: [] } });
+    setActiveFlowId(id);
+    setCallerId(null);
+  };
+  const onScenarioNodeClick = (entityId: string) => {
+    if (!dispatch) return;
+    const entity = design.entities.find((e) => e.id === entityId);
+    if (!entity) return;
+    const name = entity.name.trim();
+    if (!name) {
+      toast.error('Name the class before using it in a walkthrough');
+      return;
+    }
+    if (!activeFlow) {
+      toast.info('Pick a requirement to walk through first');
+      return;
+    }
+    if (!caller) {
+      setCallerId(entity.id);
+      return;
+    }
+    if (activeFlow.steps.length >= 30) {
+      toast.error('A walkthrough can have at most 30 calls');
+      return;
+    }
+    dispatch({
+      type: 'flow/step-add',
+      flowId: activeFlow.id,
+      step: { id: newId('s'), from: caller.name.trim(), to: name, message: defaultMessage(entity) },
+    });
+    setCallerId(entity.id);
   };
 
   const relayout = () => {
@@ -311,7 +410,16 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
       {!readOnly && (
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface px-3 py-2">
-          <Toolbar tool={tool} onTool={setTool} onAdd={addEntity} onRelayout={relayout} onFit={() => void flow.fitView({ padding: 0.15, duration: 400 })} />
+          <Toolbar
+            tool={tool}
+            onTool={setTool}
+            onAdd={addEntity}
+            onRelayout={relayout}
+            onFit={() => void flow.fitView({ padding: 0.15, duration: 400 })}
+            scenario={scenarioMode}
+            onScenario={toggleScenario}
+            history={history}
+          />
           <RequirementsDock
             problem={problem}
             design={design}
@@ -329,7 +437,7 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
           onDrop={onDrop}
         >
           <UmlMarkerDefs />
-          <ReactFlow<ClassNodeType, UmlEdgeType>
+          <ReactFlow<ClassNodeType, CanvasEdge>
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
@@ -341,16 +449,18 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
             onNodeDragStop={onNodeDragStop}
             onNodesDelete={onNodesDelete}
             onEdgesDelete={onEdgesDelete}
+            onNodeClick={scenarioMode ? (_, n) => onScenarioNodeClick(n.id) : undefined}
             onNodeDoubleClick={(_, n) => {
+              if (scenarioMode) return;
               setSelection({ kind: 'node', id: n.id });
               setFocusName(n.id);
             }}
             connectionMode={ConnectionMode.Loose}
             connectionLineStyle={{ stroke: 'var(--primary)', strokeWidth: 2, strokeDasharray: UML[tool].dashed ? '6 4' : undefined }}
-            deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+            deleteKeyCode={readOnly || scenarioMode ? null : ['Backspace', 'Delete']}
             nodesDraggable={!readOnly}
-            nodesConnectable={!readOnly}
-            elementsSelectable
+            nodesConnectable={!readOnly && !scenarioMode}
+            elementsSelectable={!scenarioMode}
             colorMode={theme}
             fitView
             fitViewOptions={{ padding: 0.15, maxZoom: 1.1 }}
@@ -385,7 +495,22 @@ function CanvasInner({ problem, design, layout, dispatch, findings, checking, fo
           onFocused={() => setFocusName(null)}
           onFocusEntity={focusEntity}
           onClose={() => setSelection(null)}
-        />
+        >
+          {scenarioMode && dispatch ? (
+            <ScenarioPanel
+              problem={problem}
+              design={design}
+              dispatch={dispatch}
+              flow={activeFlow}
+              analyses={analyses}
+              caller={caller?.name.trim() ?? null}
+              onSelectFlow={selectFlow}
+              onCreate={createFlow}
+              onSetCaller={(name) => setCallerId(name ? (idByName.get(nameKey(name)) ?? null) : null)}
+              onClose={toggleScenario}
+            />
+          ) : null}
+        </CanvasInspector>
       </div>
     </div>
   );
@@ -399,16 +524,34 @@ function Toolbar({
   onAdd,
   onRelayout,
   onFit,
+  scenario,
+  onScenario,
+  history,
 }: {
   tool: RelationshipType;
   onTool: (t: RelationshipType) => void;
   onAdd: (k: EntityKind) => void;
   onRelayout: () => void;
   onFit: () => void;
+  scenario: boolean;
+  onScenario: () => void;
+  history?: DesignCanvasProps['history'];
 }) {
   const btn = 'inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium text-fg-2 transition hover:bg-surface-2 hover:text-fg';
+  const mod = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
   return (
     <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-surface-2/60 p-0.5">
+      {history && (
+        <>
+          <button type="button" className={cn(btn, 'disabled:pointer-events-none disabled:opacity-40')} onClick={history.undo} disabled={!history.canUndo} title={`Undo (${mod}Z)`} aria-label="Undo">
+            <Undo2 className="size-3.5" />
+          </button>
+          <button type="button" className={cn(btn, 'disabled:pointer-events-none disabled:opacity-40')} onClick={history.redo} disabled={!history.canRedo} title={`Redo (${mod}Shift+Z)`} aria-label="Redo">
+            <Redo2 className="size-3.5" />
+          </button>
+          <span className="mx-1 h-5 w-px bg-border" />
+        </>
+      )}
       {(['class', 'interface', 'abstract', 'enum'] as EntityKind[]).map((kind) => (
         <button key={kind} type="button" className={btn} onClick={() => onAdd(kind)} title={`Add ${KIND_LABELS[kind].toLowerCase()}`}>
           <Plus className="size-3.5 text-muted" />
@@ -450,6 +593,15 @@ function Toolbar({
         </Dropdown.Portal>
       </Dropdown.Root>
       <span className="mx-1 h-5 w-px bg-border" />
+      <button
+        type="button"
+        className={cn(btn, scenario && 'bg-ai-soft text-ai-soft-fg hover:bg-ai-soft hover:text-ai-soft-fg')}
+        onClick={onScenario}
+        aria-pressed={scenario}
+        title="Walk through a requirement as a sequence of calls"
+      >
+        <Route className="size-3.5" /> <span className="hidden lg:inline">Scenarios</span>
+      </button>
       <button type="button" className={btn} onClick={onRelayout} title="Arrange automatically">
         <LayoutGrid className="size-3.5" /> <span className="hidden lg:inline">Auto-layout</span>
       </button>
@@ -515,4 +667,13 @@ function RequirementsDock({
       </div>
     </div>
   );
+}
+
+/** Suggested message for a call: the callee's first declared method, without visibility or return type. */
+function defaultMessage(entity: Entity): string {
+  const first = entity.methods.map((m) => m.trim()).find(Boolean);
+  if (!first) return '';
+  const clean = first.replace(/^[+\-#~]\s*/, '');
+  const close = clean.indexOf(')');
+  return close >= 0 ? clean.slice(0, close + 1) : `${clean.split(/[\s:]/)[0]}()`;
 }

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemDTO } from '@blueprint/shared';
 import { isTerminal } from '@blueprint/shared';
 import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, ChevronRight, CloudOff, Loader2, Send, XCircle } from 'lucide-react';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { api, ApiError, queryKeys } from '@/api/client';
@@ -19,7 +19,8 @@ import { ClassesPanel } from '@/features/workspace/classes-panel';
 import { DesignCanvas } from '@/features/workspace/canvas/design-canvas';
 import { useLiveChecks } from '@/features/workspace/canvas/use-live-checks';
 import { DiagramPanel } from '@/features/workspace/diagram-panel';
-import { draftReducer, isMapped } from '@/features/workspace/draft-reducer';
+import { isMapped } from '@/features/workspace/draft-reducer';
+import { useDraftHistory } from '@/features/workspace/use-draft-history';
 import { PatternsPanel } from '@/features/workspace/patterns-panel';
 import { ReasoningPanel } from '@/features/workspace/reasoning-panel';
 import { RelationshipsPanel } from '@/features/workspace/relationships-panel';
@@ -68,7 +69,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
       { replace: true },
     );
 
-  const [draft, dispatch] = useReducer(draftReducer, attempt.draft);
+  const { draft, dispatch, undo, redo, canUndo, canRedo } = useDraftHistory(attempt.draft);
   const design = draft.design;
   const autosave = useAutosave(attempt.id, draft);
   const liveChecks = useLiveChecks(problem.id, design, tab === 'canvas');
@@ -105,10 +106,20 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
     },
   });
 
-  // Keyboard: Ctrl/⌘+S saves now, Ctrl/⌘+Enter opens the submit dialog (or confirms it).
+  // Keyboard: Ctrl/⌘+S saves now, Ctrl/⌘+Enter opens the submit dialog (or confirms it),
+  // Ctrl/⌘+Z / Shift+Z / Y undo and redo design edits (text fields keep their own undo).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' || key === 'y') {
+        const el = e.target as HTMLElement | null;
+        if (el?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('[role="dialog"]')) return;
+        e.preventDefault();
+        if (key === 'y' || e.shiftKey) redo();
+        else undo();
+        return;
+      }
       if (e.key === 's') {
         e.preventDefault();
         void autosave.saveNow();
@@ -120,7 +131,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [autosave, pending, confirmOpen, blocked, submit]);
+  }, [autosave, pending, confirmOpen, blocked, submit, undo, redo]);
 
   const named = design.entities.filter((e) => e.name.trim()).length;
   const mapped = problem.functionalRequirements.filter((r) => isMapped(design, r.id)).length;
@@ -207,6 +218,7 @@ function Workspace({ attempt, problem }: { attempt: AttemptDTO; problem: Problem
               design={design}
               layout={draft.layout}
               dispatch={dispatch}
+              history={{ undo, redo, canUndo, canRedo }}
               findings={liveChecks.findings}
               checking={liveChecks.checking}
               focus={tab === 'canvas' ? focus : null}

@@ -8,8 +8,12 @@ where a design can improve:
 Learners **draw** their design on a UML canvas: classes and interfaces with
 their members, relationships drawn by dragging between classes (with proper UML
 notation), and requirements dragged onto the class that owns them. **Live design
-checks run as they draw** and badge the classes they concern. Patterns,
-trade-offs and an extension-scenario answer complete the submission. It is evaluated in the background by **15 deterministic
+checks run as they draw** and badge the classes they concern. In **scenario
+mode** they click classes in call order to walk through a requirement: each call
+is drawn as a numbered arrow, checked against the diagram (can this class
+actually reach that one?), and turned into a sequence diagram. Edits can be
+undone and redone (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>). Patterns,
+trade-offs and an extension-scenario answer complete the submission. It is evaluated in the background by **16 deterministic
 design rules** plus an **AI reviewer grounded on those rules** (Claude, or an
 offline simulator when no API key is set). The learner gets a rubric score and
 prioritised, explainable findings that link back into the editor. Every version
@@ -114,7 +118,7 @@ npm run e2e          # real-browser walkthrough: needs the app running (BASE_URL
 apps/api      Fastify API + in-process evaluation worker (TypeScript)
   domain/          Attempt, Submission, SubmissionLifecycle (state machine), ports
   formats/         SubmissionParser registry: structured form, Mermaid class diagram
-  evaluation/      15 DesignRules, LLM reviewer (prompt, schema, guardrails),
+  evaluation/      16 DesignRules, LLM reviewer (prompt, schema, guardrails),
                    LLM decorators (timeout/retry/cache), pipeline, scoring, comparison
   application/     PracticeService, EvaluationService, ProgressService
   infrastructure/  SQLite repositories + durable job queue, problem catalogue

@@ -36,6 +36,12 @@ export function UmlMarkerDefs() {
         <marker id="uml-arrow" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
           <path d="M1,1 L15,8 L1,15" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </marker>
+        <marker id="call-ok" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M1,1 L11,6 L1,11 Z" fill="var(--ai)" />
+        </marker>
+        <marker id="call-bad" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M1,1 L11,6 L1,11 Z" fill="var(--danger)" />
+        </marker>
       </defs>
     </svg>
   );

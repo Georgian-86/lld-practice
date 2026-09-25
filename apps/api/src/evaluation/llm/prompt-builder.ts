@@ -48,6 +48,12 @@ export function renderDesign(design: DesignModel): string {
     list(patterns),
     '## Trade-offs',
     list(design.tradeOffs),
+    '## Scenario walkthroughs (ordered calls)',
+    list(
+      (design.flows ?? []).map(
+        (f) => `${f.requirementId}: ${f.steps.map((s, i) => `${i + 1}. ${s.from} → ${s.to}: ${s.message}`).join('; ')}`,
+      ),
+    ),
     '## Extension scenario answer',
     design.extensionAnswer || '(not answered)',
     ...(design.notes ? ['## Additional notes', design.notes] : []),

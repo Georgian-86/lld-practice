@@ -161,3 +161,55 @@ was provided for real AI review.
    inspector is hidden below `md`.
 3. No undo/redo on the canvas yet. It would be cheap to add over the reducer
    (a history stack of drafts).
+
+---
+
+## Iteration 5: scenarios (how the design works) and undo/redo
+
+**Why:** a class diagram shows *what* exists but not *how it works*. In an
+interview the next question is always "walk me through parking a car". Nothing
+in the platform could check that answer.
+
+**Done:**
+- **Scenario walkthroughs** (`flows` in the design IR): for a requirement, an
+  ordered list of calls `A → B: message`.
+  - **Scenario mode on the canvas:** pick a requirement, then click classes in
+    call order. Each call is drawn over the dimmed class diagram as a numbered
+    arrow: violet when valid, red and dashed when not. The suggested message is
+    the callee's first method.
+  - **Checked live** by `analyseFlow` (in `packages/shared`, so the canvas and
+    the server agree). A call is valid when the caller holds a relationship to
+    the callee, to one of its interfaces or ancestors (polymorphism), or to a
+    subtype, or inherits one. The message must be a method the callee (or an
+    ancestor) declares, when it declares any. A call from a class that nobody
+    called yet is a break in the chain.
+  - The side panel lists the calls with editable messages, explains each
+    problem in plain words, lets the learner continue from any earlier class,
+    and renders a **Mermaid sequence diagram** of the walkthrough.
+  - **`ScenarioRule`** (rule 16) scores walkthroughs on submission: major
+    for an impossible call, minor for an undeclared method or a broken chain,
+    and a strength for a valid end-to-end walkthrough of three or more calls.
+    Without walkthroughs it only suggests adding one, and does not deduct.
+  - The AI reviewer's prompt includes the walkthroughs, so it can comment on
+    them.
+- **Undo/redo** for every design edit (toolbar buttons, <kbd>Ctrl</kbd>+<kbd>Z</kbd>,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd>).
+  Typing in the same field within 1.2 s is one step, automatic layout fixes are
+  not recorded, and text fields keep their native undo.
+- Renaming or deleting a class also updates or removes it in walkthroughs.
+- Tests: `analyseFlow` and the sequence generator, `ScenarioRule`, the history
+  reducer, and an e2e step that builds a valid walkthrough, adds an impossible
+  call, checks that it is flagged, and exercises undo/redo by keyboard and
+  toolbar.
+
+### Critique / backlog
+1. The feedback report's annotated diagram does not replay walkthroughs yet.
+   Scenario findings appear only as text.
+2. The sequence diagram preview is small in a 360 px panel. It needs an
+   "open larger" view.
+3. Return values and alternative paths (e.g. "lot full") are not modelled.
+   Walkthroughs are linear call chains only.
+4. Undo history is lost on reload. That is acceptable, because the draft itself
+   is autosaved.
+5. Carried over: Groq still can't be reached from this environment, and canvas
+   editing is still desktop-first.
