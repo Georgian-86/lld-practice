@@ -3,6 +3,7 @@
  * Usage: BASE_URL=http://localhost:3001 node e2e/demo.mjs  → e2e/demo/blueprint-demo.webm
  */
 import { mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
@@ -11,7 +12,7 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM_PATH ?? (existsSync('/opt/pw-browsers/chromium-1194/chrome-linux/chrome') ? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' : undefined),
 });
 const context = await browser.newContext({
   viewport: { width: 1280, height: 800 },

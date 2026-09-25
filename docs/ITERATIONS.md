@@ -344,3 +344,47 @@ PR #2 was merged, and this iteration starts from that `main`.
 3. Achievement toasts depend on the report page being open when evaluation
    finishes. A learner who navigates away sees the achievement on Progress, not
    as a toast.
+
+---
+
+## Iteration 9: submission polish, graded against the brief
+
+PR #3 was merged. This iteration came from a review of everything built so far
+against the assignment's deliverables and weights. It found little missing in the
+product, and more missing in evidence and documentation.
+
+**Done:**
+- **Fairness evidence** (`apps/api/test/unit/fairness.test.ts`): a
+  strategy-and-inheritance design and an enum-based design (different names for
+  every seam) score 100 and 100 on the rules alone, and 90 and 88 with the offline
+  reviewer. A god-class design scores 52 (42). This backs the brief's
+  "more than one valid solution" question with a test, not a claim.
+- **Two scoring rules recalibrated**, found by that test:
+  - an empty trade-offs section is now *critical*, which caps the criterion at 50
+    (it scored 80 before);
+  - a class clearly over the responsibility limit (by 2 or more) is now a
+    *major* issue, while one just over the limit stays a minor nudge.
+- **`PracticeContext` domain value object:** the one place that interprets a
+  submission's curveball and interview timing. The DTO mapping and achievements
+  no longer re-derive them from the draft. A stale schema comment ("never
+  evaluated") was corrected.
+- **See a sample report:** `POST /api/problems/:id/sample` starts a real attempt
+  from a worked sample (`problems/samples/parking-lot.json`, validated at
+  startup) and submits it through the normal pipeline. The home page offers it,
+  so a reviewer sees feedback, walkthroughs and the curveball deck in seconds.
+- **CI** (`.github/workflows/ci.yml`): typecheck, all tests and the build, then
+  the e2e walkthrough against the production server with screenshots uploaded.
+  The e2e script falls back to Playwright's own Chromium outside the sandbox.
+- **Docs:** `DESIGN.md` updated (current MVP, flow, architecture and class
+  diagram) and given a section answering the brief's five design questions with
+  evidence. The README gains a 5-minute reviewer tour, a CI badge and fixed stale
+  sections. `RESEARCH.md` links curveballs and walkthroughs to research gaps.
+  `AI_USAGE.md` records a more significant AI decision and the human's decisions.
+  `PLAN.md` is marked as historical.
+
+### Critique / backlog
+1. Still the top risk: the live AI (Groq) path has not run outside tests. It
+   needs the Render deploy with a fresh key.
+2. Only Parking Lot has a worked sample.
+3. The fairness test covers one problem. Each problem should have its own pair
+   of valid designs.

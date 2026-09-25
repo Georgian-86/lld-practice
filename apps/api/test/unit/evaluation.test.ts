@@ -201,7 +201,10 @@ describe('EvaluationPipeline', () => {
     const report = await pipeline(null).run({ ...input, design: d });
     const kinds = report.findings.map((f) => f.kind);
     expect(kinds.indexOf('strength')).toBeGreaterThan(kinds.lastIndexOf('issue'));
-    expect(report.findings[0]!.severity).toBe('major');
+    expect(report.findings[0]!.severity).toBe('critical'); // no trade-offs at all
+    const rank = { critical: 0, major: 1, minor: 2, info: 3 } as const;
+    const issues = report.findings.filter((f) => f.kind === 'issue').map((f) => rank[f.severity]);
+    expect(issues).toEqual([...issues].sort((a, b) => a - b));
   });
 });
 

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, unit & integration tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    name: End-to-end walkthrough (Chromium, a11y audits)
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run build
+      - name: Start the production server (offline AI reviewer)
+        run: |
+          DATABASE_PATH=$RUNNER_TEMP/e2e.db PORT=3001 LLM_SIMULATED_LATENCY_MS=1500 LOG_LEVEL=warn npm start > $RUNNER_TEMP/server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3001/api/health && exit 0; sleep 1; done
+          cat $RUNNER_TEMP/server.log; exit 1
+      - run: npm run e2e
+        env:
+          BASE_URL: http://localhost:3001
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: apps/web/e2e/screenshots/
+          if-no-files-found: ignore
+      - name: Server log on failure
+        if: failure()
+        run: cat $RUNNER_TEMP/server.log || true

@@ -1,5 +1,10 @@
 # LLD Practice Platform — Build Plan
 
+> **Historical document.** This is the plan written before any code, kept as a
+> record of the starting point. The shipped product went further (UML canvas,
+> walkthroughs, curveballs). For the current state see [`DESIGN.md`](DESIGN.md) and
+> [`ITERATIONS.md`](ITERATIONS.md), which logs each change against this plan.
+
 > Status: planning. This document is the blueprint for the 2-day build. It is written so every
 > deliverable in the brief (research note, design note, prototype, tests, README, AI_USAGE) maps to
 > a concrete piece of work below.

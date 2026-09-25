@@ -1,4 +1,4 @@
-import type { EvaluationReport, Problem } from '@blueprint/shared';
+import type { Draft, EvaluationReport, Problem } from '@blueprint/shared';
 import type { Attempt } from './attempt';
 import type { Submission } from './submission';
 
@@ -11,6 +11,11 @@ import type { Submission } from './submission';
 export interface ProblemCatalog {
   list(): Problem[];
   get(id: string): Problem | undefined;
+}
+
+/** Worked sample designs, keyed by problem id. */
+export interface SampleDesigns {
+  get(problemId: string): Draft | undefined;
 }
 
 export interface AttemptRepository {

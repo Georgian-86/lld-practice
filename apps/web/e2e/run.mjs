@@ -7,6 +7,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { parkingDesign } from './fixture-design.mjs';
 
@@ -14,9 +15,25 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = new URL('./screenshots/', import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// Local sandbox ships Chromium at a fixed path; elsewhere (e.g. CI) use Playwright's own browser.
+const SANDBOX_CHROMIUM = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const executablePath = process.env.CHROMIUM_PATH ?? (existsSync(SANDBOX_CHROMIUM) ? SANDBOX_CHROMIUM : undefined);
 const browser = await chromium.launch({ executablePath });
 const problems = [];
+const pages = [];
+
+// On any failure, leave evidence behind: a screenshot of every open page (CI uploads the folder).
+async function saveFailureEvidence(error) {
+  console.error(error);
+  for (const [i, p] of pages.entries()) {
+    await p.screenshot({ path: new URL(`./screenshots/failure-${i}.png`, import.meta.url).pathname, fullPage: false }).catch(() => {});
+  }
+  if (problems.length) console.error(problems.join('\n'));
+  await browser.close().catch(() => {});
+  process.exit(1);
+}
+process.on('uncaughtException', saveFailureEvidence);
+process.on('unhandledRejection', saveFailureEvidence);
 
 // Expected non-2xx responses the walkthrough provokes on purpose (browsers log these as console errors).
 const EXPECTED_STATUS = /status of (404|409) /;
@@ -26,6 +43,7 @@ async function newPage(viewport = { width: 1440, height: 900 }, colorScheme = 'l
   const context = await browser.newContext({ viewport, colorScheme, deviceScaleFactor: 1, ignoreHTTPSErrors: true });
   if (learnerId) await context.addInitScript((id) => localStorage.setItem('blueprint.learnerId', id), learnerId);
   const page = await context.newPage();
+  pages.push(page);
   page.on('console', (msg) => {
     if (msg.type() === 'error' && !EXPECTED_STATUS.test(msg.text())) problems.push(`[console] ${page.url()} :: ${msg.text()}`);
     // React Flow reports broken edges/handles as warnings ("[React Flow]: …"); treat those as bugs too.
@@ -96,17 +114,40 @@ await page.getByLabel('Responsibilities').fill('Tracks free spots');
 const canvasNode = (name) => page.locator('.react-flow__node', { hasText: name }).first();
 await page.getByRole('button', { name: 'Relationship type for new connections' }).click();
 await page.getByRole('menuitemradio', { name: /owns/ }).click();
-{
-  await canvasNode('ParkingLot').hover();
-  const a = await canvasNode('ParkingLot').locator('.react-flow__handle-right').boundingBox();
-  const b = await canvasNode('Floor').locator('.react-flow__handle-left').boundingBox();
+// Measure only once the element has stopped moving (new nodes are placed, then measured by React Flow).
+async function stableBox(locator) {
+  let previous = null;
+  for (let i = 0; i < 20; i++) {
+    const box = await locator.boundingBox();
+    if (box && previous && Math.abs(box.x - previous.x) < 0.5 && Math.abs(box.y - previous.y) < 0.5) return box;
+    previous = box;
+    await page.waitForTimeout(100);
+  }
+  return previous;
+}
+async function dragConnect(fromName, toName) {
+  const source = canvasNode(fromName).locator('.react-flow__handle-right');
+  const target = canvasNode(toName).locator('.react-flow__handle-left');
+  await canvasNode(fromName).hover();
+  const a = await stableBox(source);
+  const b = await stableBox(target);
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
   await page.mouse.down();
-  await page.mouse.move(b.x + 4, b.y + 4, { steps: 12 });
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 });
+  await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 10 });
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
+  await page.waitForTimeout(100); // let React Flow register the handle under the pointer
   await page.mouse.up();
+  return { a, b };
 }
-await page.locator('.react-flow__edge').first().waitFor();
+{
+  let attempt = await dragConnect('ParkingLot', 'Floor');
+  const connected = () => page.locator('.react-flow__edge').first().waitFor({ timeout: 4000 }).then(() => true, () => false);
+  if (!(await connected())) {
+    console.log(`  (connect gesture missed: from ${JSON.stringify(attempt.a)} to ${JSON.stringify(attempt.b)}; measuring again)`);
+    attempt = await dragConnect('ParkingLot', 'Floor');
+    if (!(await connected())) throw new Error(`Dragging between handles did not create a relationship (from ${JSON.stringify(attempt.a)} to ${JSON.stringify(attempt.b)})`);
+  }
+}
 await page.getByTitle(/^FR-1:/).dragTo(canvasNode('Floor'));
 await canvasNode('Floor').getByText('FR-1').waitFor();
 
@@ -325,6 +366,16 @@ step('404 page');
 await page.goto(`${BASE}/submissions/sub_does_not_exist`);
 await page.getByText('We couldn’t find that').waitFor();
 await shot(page, '18-not-found', false);
+
+step('See a sample report from the home page');
+await page.goto(BASE);
+await page.getByRole('button', { name: 'See a sample report' }).click();
+await page.waitForURL(/\/submissions\//);
+await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
+await page.getByRole('button', { name: /Walkthroughs/ }).waitFor(); // the sample includes a scenario walkthrough
+await page.waitForTimeout(800);
+await shot(page, '18b-sample-report', false);
+await audit(page, 'sample report');
 
 step('Dark mode');
 const learner = await page.evaluate(() => localStorage.getItem('blueprint.learnerId'));

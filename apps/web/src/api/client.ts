@@ -73,6 +73,8 @@ export const api = {
   attempts: (problemId?: string) =>
     request<AttemptDTO[]>(`/attempts${problemId ? `?problemId=${encodeURIComponent(problemId)}` : ''}`),
   attempt: (id: string) => request<AttemptDTO>(`/attempts/${encodeURIComponent(id)}`),
+  startSample: (problemId: string) =>
+    request<SubmissionDTO>(`/problems/${encodeURIComponent(problemId)}/sample`, { method: 'POST' }),
   startAttempt: (problemId: string) => request<AttemptDTO>('/attempts', { method: 'POST', body: json({ problemId }) }),
   saveDraft: (attemptId: string, draft: Draft, keepalive = false) =>
     request<{ savedAt: string }>(`/attempts/${encodeURIComponent(attemptId)}/draft`, {

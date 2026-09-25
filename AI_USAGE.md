@@ -40,16 +40,19 @@ suggestion was *not* the one that shipped, or where it had to be constrained.
   important behaviour: when the AI fails, the learner still gets the rule-based
   report (`evaluated_partial`) and can retry.
 
-## 4. Rename propagation in the editor (a bug the AI introduced and then caught)
+## 4. Who decides where the curveball aims: the model or the code?
 
-- **Suggested:** relationships and traceability reference classes by name, and
-  renaming a class rewrites every matching reference.
-- **Problem found in review:** while typing, names collide transiently (renaming
-  `Ca` → `Car` while a `Car` already exists). The naive rewrite would silently
-  re-point the *other* class's relationships.
-- **Decision:** propagate a rename only when both the old and new names identify
-  that entity unambiguously. There is a regression test for exactly this sequence
-  (`draft-reducer.test.ts`).
+- **Suggested:** for the "aim a curveball at my design" feature, send the design to
+  the LLM and let it invent a change request that stresses the design.
+- **Decision: rejected as stated, kept for wording only.** A model choosing the
+  target can't be tested, varies between runs, and might aim at something the
+  scoring rules consider fine. The **target is chosen deterministically**: the
+  first point of change with no abstraction, then an abstraction with no
+  implementations, then the least-exercised seam. It uses the same keyword
+  matching as the scoring rule, so the curveball and the report agree. The model
+  only rewrites the change request in an interviewer's voice. Its JSON is
+  validated, and any failure falls back to a template, so the feature works
+  offline and is unit-tested for valid, invalid and failing model answers.
 
 ## 5. Trusting the AI's own UI and feedback: the screenshot critique loop
 
@@ -66,6 +69,24 @@ suggestion was *not* the one that shipped, or where it had to be constrained.
   - the offline reviewer awarded 100/100.
 
   All were fixed in iteration 2, with tests where possible.
+
+## Decisions that came from the human, not the AI
+
+- **From form to canvas.** The first versions used a form-based editor (tabs of
+  fields). The human rejected it ("I don't want just a question-and-answer kind of
+  thing") and asked for real diagramming. That redirected iteration 4 to the UML
+  canvas, and later iterations to walkthroughs and curveballs.
+- **A critique pass after every iteration.** The human required each iteration to
+  start by criticising the previous one. That is why `docs/ITERATIONS.md` has a
+  critique and backlog per iteration, and why several regressions (contrast, a
+  hooks-order bug, over-generous scoring) were caught rather than shipped.
+- **Evaluate against the brief before polishing further.** Asking for a review
+  against the deliverables led to the fairness test, which exposed two scoring
+  rules as too lenient (an empty trade-offs section scored 80, and a class with 8
+  responsibilities was only a "minor" issue). Both were recalibrated.
+- **Deployment target and provider.** Render with a persistent disk was chosen
+  over a serverless host (SQLite and an in-process worker need a long-running
+  process). Groq was added as a provider because it was the key available.
 
 ## Where AI was *not* used for judgement
 

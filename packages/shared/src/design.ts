@@ -138,9 +138,10 @@ export const layoutSchema = z
 export type DiagramLayout = z.infer<typeof layoutSchema>;
 
 /**
- * An accepted "curveball": the interviewer's change request (the problem's
- * extension scenario), taken on after the given version was reviewed.
- * Presentation and framing only: never evaluated.
+ * An accepted "curveball": one of the interviewer's change requests, taken
+ * on after the given version was reviewed. It never changes the score; the API
+ * interprets it through `PracticeContext` (summaries, achievements), and the
+ * report uses it to frame the change-impact view.
  */
 export const challengeSchema = z.object({
   kind: z.literal('curveball'),
