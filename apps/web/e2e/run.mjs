@@ -6,6 +6,7 @@
  * Usage: BASE_URL=http://localhost:5173 node e2e/run.mjs
  */
 import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 import { parkingDesign } from './fixture-design.mjs';
 
@@ -43,6 +44,19 @@ async function newPage(viewport = { width: 1440, height: 900 }, colorScheme = 'l
 }
 
 const shot = (page, name, fullPage = true) => page.screenshot({ path: `${OUT}${name}.png`, fullPage });
+
+// Accessibility: run axe-core on a page and record serious/critical WCAG A/AA violations.
+const axePath = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+async function audit(page, label) {
+  await page.addScriptTag({ path: axePath });
+  const violations = await page.evaluate(async () => {
+    const result = await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] });
+    return result.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
+  });
+  for (const v of violations) problems.push(`[a11y] ${label}: ${v}`);
+}
 const step = (name) => console.log(`• ${name}`);
 
 const page = await newPage();
@@ -52,11 +66,13 @@ await page.goto(BASE);
 await page.getByRole('heading', { name: 'Problems' }).waitFor();
 await page.getByText('Parking Lot').first().waitFor();
 await shot(page, '01-home');
+await audit(page, 'home');
 
 step('Problem brief');
 await page.getByRole('link', { name: /Parking Lot/ }).first().click();
 await page.getByRole('button', { name: /Start attempt/ }).waitFor();
 await shot(page, '02-problem');
+await audit(page, 'problem');
 
 step('Start attempt → empty workspace');
 await page.getByRole('button', { name: /Start attempt/ }).click();
@@ -100,6 +116,7 @@ await page.getByRole('button', { name: /ParkingSpot/ }).waitFor();
 await page.getByRole('button', { name: /ParkingSpot/ }).click();
 await page.waitForTimeout(250); // let the selection transition finish
 await shot(page, '04-workspace-classes', false);
+await audit(page, 'workspace classes');
 for (const [tab, name] of [
   ['Relationships', '05-workspace-relationships'],
   ['Traceability', '06-workspace-traceability'],
@@ -107,10 +124,12 @@ for (const [tab, name] of [
   ['Trade-offs', '08-workspace-reasoning'],
   ['Diagram', '09-workspace-diagram'],
 ]) {
+  // (each tab is audited below)
   await page.getByRole('tab', { name: new RegExp(tab) }).click();
   if (tab === 'Diagram') await page.locator('svg[id^="mmd-"]').first().waitFor({ timeout: 15000 });
   await page.waitForTimeout(300);
   await shot(page, name, false);
+  await audit(page, `workspace ${tab}`);
 }
 await page.getByRole('tab', { name: 'Hints' }).click();
 await page.getByRole('button', { name: 'Reveal hint' }).click();
@@ -121,12 +140,14 @@ step('Submit v1');
 await page.getByRole('button', { name: 'Submit for review' }).click();
 await page.getByRole('dialog').waitFor();
 await shot(page, '11-submit-dialog', false);
+await audit(page, 'submit dialog');
 await page.getByRole('dialog').getByRole('button', { name: 'Submit', exact: true }).click();
 await page.getByText(/Reviewing version 1/).waitFor();
 await shot(page, '12-evaluating', false);
 await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
 await page.waitForTimeout(800);
 await shot(page, '13-feedback-v1');
+await audit(page, 'feedback');
 const v1 = page.url().split('/submissions/')[1];
 
 step('Deep link from a finding into the editor');
@@ -165,12 +186,14 @@ await page.getByRole('button', { name: /Compare with v1/ }).click();
 await page.getByText('What changed between versions').waitFor();
 await page.waitForTimeout(500);
 await shot(page, '15-compare');
+await audit(page, 'compare');
 
 step('Progress');
 await page.getByRole('link', { name: 'Progress' }).click();
 await page.getByText('Score over time').waitFor();
 await page.waitForTimeout(500);
 await shot(page, '16-progress');
+await audit(page, 'progress');
 
 step('Duplicate submission is refused with a toast');
 await page.goto(`${BASE}/attempts/${attemptId}`);
@@ -190,15 +213,18 @@ const dark = await newPage({ width: 1440, height: 900 }, 'dark', learner);
 await dark.goto(`${BASE}/submissions/${v1}`);
 await dark.getByText('Rubric breakdown').waitFor();
 await shot(dark, '19-dark-feedback');
+await audit(dark, 'dark feedback');
 await dark.goto(`${BASE}/attempts/${attemptId}?tab=classes`);
 await dark.getByRole('button', { name: /ParkingLot/ }).first().waitFor();
 await shot(dark, '20-dark-workspace', false);
+await audit(dark, 'dark workspace');
 
 step('Mobile');
 const mobile = await newPage({ width: 390, height: 844 }, 'light', learner);
 await mobile.goto(BASE);
 await mobile.getByText('Parking Lot').first().waitFor();
 await shot(mobile, '21-mobile-home');
+await audit(mobile, 'mobile home');
 await mobile.goto(`${BASE}/submissions/${v1}`);
 await mobile.getByText('Rubric breakdown').waitFor();
 await shot(mobile, '22-mobile-feedback');

@@ -31,6 +31,7 @@ export interface ProblemSummaryDTO {
   summary: string;
   tags: string[];
   requirementCount: number;
+  rubric: Record<CriterionId, number>;
   progress: {
     attempts: number;
     submissions: number;

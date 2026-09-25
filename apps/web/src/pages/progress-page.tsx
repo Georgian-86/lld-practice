@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { ProblemSummaryDTO, ProgressDTO } from '@blueprint/shared';
 import { CRITERIA } from '@blueprint/shared';
-import { Activity, ArrowRight, BarChart3, ChevronRight } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, ChevronRight, Target } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { api, queryKeys } from '@/api/client';
 import { PageContainer } from '@/components/app-shell';
@@ -19,6 +20,8 @@ export function ProgressPage() {
   useDocumentTitle('Progress');
   const navigate = useNavigate();
   const { data, error, isLoading, refetch } = useQuery({ queryKey: queryKeys.progress, queryFn: api.progress });
+  const problems = useQuery({ queryKey: queryKeys.problems, queryFn: api.problems });
+  const recommendation = recommendNext(data, problems.data);
 
   if (error) return <ErrorView error={error} onRetry={() => void refetch()} />;
 
@@ -110,6 +113,26 @@ export function ProgressPage() {
                   />
                 )}
               </div>
+              {recommendation && (
+                <div className="border-t border-border p-5">
+                  <div className="flex flex-col gap-3 rounded-xl bg-primary-soft p-4 sm:flex-row sm:items-center">
+                    <Target className="size-5 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-primary-soft-fg">Practise next</div>
+                      <p className="mt-0.5 text-[13px] leading-relaxed text-fg">
+                        <span className="font-semibold">{recommendation.problem.title}</span> weights{' '}
+                        <span className="font-medium">{recommendation.criterion.toLowerCase()}</span> at {recommendation.weight}% — your weakest
+                        area so far ({recommendation.average}).
+                      </p>
+                    </div>
+                    <Link to={`/problems/${recommendation.problem.id}`}>
+                      <Button size="sm" variant="primary">
+                        Open problem <ArrowRight className="size-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
             </Card>
             <Card>
               <CardHeader title="Average by criterion" icon={<BarChart3 className="size-4" />} description="Where your designs are strongest and weakest" />
@@ -180,4 +203,23 @@ export function ProgressPage() {
       )}
     </PageContainer>
   );
+}
+
+/**
+ * Suggest the problem that exercises the learner's weakest criterion most,
+ * preferring problems they haven't practised yet.
+ */
+function recommendNext(progress?: ProgressDTO, problems?: ProblemSummaryDTO[]) {
+  if (!progress || !problems?.length) return null;
+  const weakest = progress.criterionAverages
+    .filter((c): c is typeof c & { average: number } => c.average !== null)
+    .sort((a, b) => a.average - b.average)[0];
+  if (!weakest || weakest.average >= 90) return null;
+  const ranked = [...problems].sort(
+    (a, b) =>
+      Number(a.progress.submissions > 0) - Number(b.progress.submissions > 0) ||
+      b.rubric[weakest.criterionId] - a.rubric[weakest.criterionId],
+  );
+  const problem = ranked[0]!;
+  return { problem, criterion: weakest.name, weight: problem.rubric[weakest.criterionId], average: weakest.average };
 }

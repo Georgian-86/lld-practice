@@ -51,7 +51,7 @@ export function DiagramPanel({ design, dispatch }: { design: DesignModel; dispat
           </Button>
         </div>
       </div>
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-auto bg-surface-2/50 p-6">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-auto bg-surface-2/50 p-6" tabIndex={0} role="region" aria-label="Class diagram">
         {hasClasses ? (
           <MermaidView source={source} className="mx-auto flex justify-center [&_svg]:h-auto [&_svg]:max-w-full" />
         ) : (

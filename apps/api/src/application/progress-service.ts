@@ -36,6 +36,7 @@ export class ProgressService {
         summary: problem.summary,
         tags: problem.tags,
         requirementCount: problem.functionalRequirements.length + problem.nonFunctionalRequirements.length,
+        rubric: problem.rubric,
         progress: {
           attempts: problemAttempts.length,
           submissions: problemSubmissions.length,

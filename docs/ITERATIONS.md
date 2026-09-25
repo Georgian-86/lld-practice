@@ -86,3 +86,29 @@ diagram theme), 13 (continue card), 14 and 15. Then 16 and 17.
 ### Backlog → Iteration 3
 Show the rule/AI split inline (1). Recommend the next problem from the weakest
 criterion (2). Add an axe-core audit to the e2e run and fix what it finds (3).
+
+---
+
+## Iteration 3: explainability and accessibility
+
+**Done:**
+- The rubric rows show *why* a score isn't 100: `20% weight · Checks 53 · AI 40 → 45`.
+- Progress recommends **what to practise next**: the unpractised problem whose
+  rubric weights the learner's weakest criterion most.
+- **Automated accessibility audit** (axe-core, WCAG 2.1 A/AA) on 13 screens in the
+  e2e run. It found 15 serious or critical issues, and all of them are fixed:
+  - text contrast: `subtle`, `success`, `warning` and `info` tokens re-chosen from
+    computed ratios (≥ 4.5:1 on every surface, both themes);
+  - a separate `primary-solid` token for filled buttons, so dark mode passes both
+    for "white on primary" and for "primary as text";
+  - meters now have accessible names;
+  - the findings filter is now a proper toggle group (Radix Tabs without panels
+    left dangling `aria-controls`);
+  - the diagram scroll region is keyboard-focusable;
+  - the chart no longer nests interactive marks inside `role="img"`.
+- The e2e walkthrough now fails on any serious or critical a11y violation, as well
+  as on console errors, 5xx responses and horizontal overflow.
+
+### Remaining known limitations
+Documented in the README: anonymous per-browser identity, a single SQLite node,
+heuristic offline reviewer quality, four problems, and an editor designed for desktop.

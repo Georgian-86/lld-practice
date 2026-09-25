@@ -72,7 +72,7 @@ export function TraceabilityPanel({
             </p>
             <span className="text-xs text-muted">{Math.round((mapped / functional.length) * 100)}%</span>
           </div>
-          <Meter value={(mapped / functional.length) * 100} tone={mapped === functional.length ? 'success' : 'primary'} />
+          <Meter value={(mapped / functional.length) * 100} tone={mapped === functional.length ? 'success' : 'primary'} label="Requirements with an owner" />
           <p className="mt-3 text-xs leading-relaxed text-muted">
             For each requirement, pick the classes that are responsible for it. If none fits, that usually means a class is missing.
           </p>

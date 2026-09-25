@@ -9,7 +9,7 @@ import { Tooltip } from './ui/tooltip';
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="8" fill="var(--primary)" />
+      <rect width="32" height="32" rx="8" fill="var(--primary-solid)" />
       <g fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="7" y="7" width="8" height="6" rx="1.5" />
         <rect x="17" y="19" width="8" height="6" rx="1.5" />

@@ -15,25 +15,27 @@
   --border-strong: #cfd4dd;
   --fg: #0f1729;
   --fg-2: #344054;
-  --muted: #667085;
-  --subtle: #98a2b3;
+  --muted: #556070;
+  --subtle: #667085;
 
   --primary: #4f46e5;
   --primary-hover: #4338ca;
+  --primary-solid: #4f46e5;
+  --primary-solid-hover: #4338ca;
   --primary-fg: #ffffff;
   --primary-soft: #eef0ff;
   --primary-soft-fg: #3730a3;
 
-  --success: #059669;
+  --success: #047857;
   --success-soft: #e7f8f1;
   --success-soft-fg: #047857;
-  --warning: #d97706;
+  --warning: #b45309;
   --warning-soft: #fff5e1;
   --warning-soft-fg: #b45309;
   --danger: #dc2626;
   --danger-soft: #fdecec;
   --danger-soft-fg: #b91c1c;
-  --info: #0284c7;
+  --info: #0369a1;
   --info-soft: #e6f4fb;
   --info-soft-fg: #0369a1;
   --ai: #7c3aed;
@@ -55,10 +57,13 @@
   --fg: #f3f5f9;
   --fg-2: #d0d5dd;
   --muted: #98a2b3;
-  --subtle: #667085;
+  --subtle: #8a94a6;
 
-  --primary: #6d66f2;
-  --primary-hover: #8580f5;
+  /* Text/accent primary is lighter than the filled-button primary so both pass AA. */
+  --primary: #8b85f7;
+  --primary-hover: #9590f8;
+  --primary-solid: #5850e6;
+  --primary-solid-hover: #4f46e5;
   --primary-fg: #ffffff;
   --primary-soft: #1e1b4b;
   --primary-soft-fg: #c7c4ff;
@@ -100,6 +105,8 @@
   --color-subtle: var(--subtle);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-solid: var(--primary-solid);
+  --color-primary-solid-hover: var(--primary-solid-hover);
   --color-primary-fg: var(--primary-fg);
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-fg: var(--primary-soft-fg);

@@ -66,11 +66,11 @@ export function GradeLabel({ grade }: { grade: Grade }) {
   return <>{GRADE_LABELS[grade]}</>;
 }
 
-export function Meter({ value, className, tone }: { value: number; className?: string; tone?: ReturnType<typeof scoreTone> }) {
+export function Meter({ value, className, tone, label }: { value: number; className?: string; tone?: ReturnType<typeof scoreTone>; label: string }) {
   const t = tone ?? scoreTone(value);
   const bg = { success: 'bg-success', primary: 'bg-primary', warning: 'bg-warning', danger: 'bg-danger' }[t];
   return (
-    <div className={cn('h-2 overflow-hidden rounded-full bg-surface-3', className)} role="meter" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
+    <div className={cn('h-2 overflow-hidden rounded-full bg-surface-3', className)} role="meter" aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={100}>
       <div className={cn('h-full rounded-full transition-[width] duration-700', bg)} style={{ width: `${Math.max(2, Math.min(100, value))}%` }} />
     </div>
   );

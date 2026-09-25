@@ -39,7 +39,7 @@ export function ScoreTrend({ points, onSelect }: { points: TrendPoint[]; onSelec
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full overflow-visible"
-        role="img"
+        role="group"
         aria-labelledby={titleId}
         onMouseLeave={() => setActive(null)}
       >

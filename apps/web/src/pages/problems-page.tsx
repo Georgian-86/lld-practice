@@ -92,7 +92,7 @@ function ContinueCard({ attempt }: { attempt: AttemptDTO }) {
   return (
     <Link to={`/attempts/${attempt.id}`} className="group mb-8 block rounded-xl focus-visible:outline-offset-4">
       <Card className="flex flex-col gap-4 border-primary/25 bg-gradient-to-r from-primary-soft/70 to-surface p-5 transition group-hover:shadow-md sm:flex-row sm:items-center">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-fg">
+        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-solid text-primary-fg">
           <PenTool className="size-4" />
         </div>
         <div className="min-w-0 flex-1">

@@ -51,7 +51,7 @@ export function EvaluationProgress({ submission }: { submission: SubmissionDTO }
               <span
                 className={cn(
                   'relative z-10 grid size-7 shrink-0 place-items-center rounded-full border text-xs font-semibold',
-                  done && 'border-primary bg-primary text-primary-fg',
+                  done && 'border-primary-solid bg-primary-solid text-primary-fg',
                   active && 'border-primary bg-surface text-primary ring-4 ring-primary-soft',
                   !done && !active && 'border-border bg-surface text-subtle',
                 )}

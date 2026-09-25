@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/misc';
 import { Meter, ScoreRing, scoreTone } from '@/components/ui/score';
-import { Tabs, TabsList, PillTrigger } from '@/components/ui/tabs';
+import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import { FindingCard } from './finding-card';
@@ -74,21 +74,20 @@ export function FeedbackReport({
                   <Tooltip content={CRITERIA[c.criterionId].description}>
                     <span className="text-[13px] font-medium text-fg">{c.name}</span>
                   </Tooltip>
-                  <div className="flex items-center gap-2 text-xs text-muted">
-                    <span className="tabular-nums">{c.weight}%</span>
-                    <Tooltip
-                      content={
-                        <>
-                          Rules: {c.ruleScore}
-                          {c.aiScore !== null ? ` · AI: ${c.aiScore}` : ' · AI: n/a'}
-                        </>
-                      }
-                    >
-                      <span className="w-8 text-right text-[13px] font-semibold tabular-nums text-fg">{c.score}</span>
+                  <div className="flex items-center gap-3 text-xs text-muted">
+                    <Tooltip content="How much this criterion counts towards the overall score for this problem.">
+                      <span className="tabular-nums">{c.weight}% weight</span>
                     </Tooltip>
+                    <Tooltip content="Score from the deterministic checks, and from the AI review. The criterion score blends them; the checks cap what the AI can claim.">
+                      <span className="hidden tabular-nums sm:inline">
+                        Checks {c.ruleScore}
+                        {c.aiScore !== null && <> · AI {c.aiScore}</>}
+                      </span>
+                    </Tooltip>
+                    <span className="w-8 text-right text-[13px] font-semibold tabular-nums text-fg">{c.score}</span>
                   </div>
                 </div>
-                <Meter value={c.score} className="mt-2 h-1.5" />
+                <Meter value={c.score} className="mt-2 h-1.5" label={`${c.name} score`} />
                 <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">{c.rationale}</p>
               </li>
             ))}
@@ -212,13 +211,16 @@ function Findings({ report, simulated, attemptId }: { report: EvaluationReport; 
           </h2>
           <p className="text-[13px] text-muted">Most important first. Each point references your own classes and requirements.</p>
         </div>
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList className="rounded-lg bg-surface-2 p-1">
-            <PillTrigger value="improve">To improve · {groups.improve.length}</PillTrigger>
-            <PillTrigger value="strengths">Strengths · {groups.strengths.length}</PillTrigger>
-            <PillTrigger value="all">All · {report.findings.length}</PillTrigger>
-          </TabsList>
-        </Tabs>
+        <Segmented
+          label="Filter feedback"
+          value={filter}
+          onChange={(v) => setFilter(v as Filter)}
+          options={[
+            { value: 'improve', label: `To improve · ${groups.improve.length}` },
+            { value: 'strengths', label: `Strengths · ${groups.strengths.length}` },
+            { value: 'all', label: `All · ${report.findings.length}` },
+          ]}
+        />
       </div>
       {shown.length === 0 ? (
         <Card>
