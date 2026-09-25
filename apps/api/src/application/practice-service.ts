@@ -17,6 +17,7 @@ import type {
   IdGenerator,
   JobQueue,
   ProblemCatalog,
+  SampleDesigns,
   SubmissionRepository,
 } from '../domain/ports';
 import { Submission } from '../domain/submission';
@@ -34,6 +35,8 @@ export interface PracticeServiceDeps {
   clock: Clock;
   ids: IdGenerator;
   pollAfterMs: number;
+  /** Worked samples for "see a sample report"; optional so tests can omit them. */
+  samples?: SampleDesigns;
 }
 
 /**
@@ -57,6 +60,19 @@ export class PracticeService {
     });
     await this.deps.attempts.save(attempt);
     return toAttemptDTO(attempt, problem, [], new Map());
+  }
+
+  /**
+   * Starts an attempt from the problem's worked sample and submits it, so a
+   * newcomer sees a real report (and can take its curveball) without drawing
+   * first. It goes through the same submit path as any learner submission.
+   */
+  async startSample(learnerId: string, problemId: string): Promise<SubmissionDTO> {
+    const sample = this.deps.samples?.get(problemId);
+    if (!sample) throw new NotFoundError('Sample', problemId);
+    const attempt = await this.startAttempt(learnerId, problemId);
+    await this.saveDraft(learnerId, attempt.id, sample);
+    return this.submit(learnerId, attempt.id, sample);
   }
 
   async getAttempt(learnerId: string, attemptId: string): Promise<AttemptDTO> {

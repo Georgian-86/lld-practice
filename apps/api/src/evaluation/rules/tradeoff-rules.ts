@@ -23,7 +23,8 @@ export class TradeOffRule implements DesignRule {
           ruleId: this.id,
           criterionId: this.criterionId,
           kind: 'issue',
-          severity: 'major',
+          // The whole criterion has no evidence, so this caps it (see SCORING.criticalCap).
+          severity: 'critical',
           key: 'none',
           title: 'No trade-offs discussed',
           message: 'Every design choice has a cost. Without trade-offs, a reviewer cannot tell whether choices were deliberate.',

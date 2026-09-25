@@ -7,6 +7,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { parkingDesign } from './fixture-design.mjs';
 
@@ -14,7 +15,9 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = new URL('./screenshots/', import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// Local sandbox ships Chromium at a fixed path; elsewhere (e.g. CI) use Playwright's own browser.
+const SANDBOX_CHROMIUM = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const executablePath = process.env.CHROMIUM_PATH ?? (existsSync(SANDBOX_CHROMIUM) ? SANDBOX_CHROMIUM : undefined);
 const browser = await chromium.launch({ executablePath });
 const problems = [];
 
@@ -325,6 +328,16 @@ step('404 page');
 await page.goto(`${BASE}/submissions/sub_does_not_exist`);
 await page.getByText('We couldn’t find that').waitFor();
 await shot(page, '18-not-found', false);
+
+step('See a sample report from the home page');
+await page.goto(BASE);
+await page.getByRole('button', { name: 'See a sample report' }).click();
+await page.waitForURL(/\/submissions\//);
+await page.getByText('Rubric breakdown').waitFor({ timeout: 30000 });
+await page.getByRole('button', { name: /Walkthroughs/ }).waitFor(); // the sample includes a scenario walkthrough
+await page.waitForTimeout(800);
+await shot(page, '18b-sample-report', false);
+await audit(page, 'sample report');
 
 step('Dark mode');
 const learner = await page.evaluate(() => localStorage.getItem('blueprint.learnerId'));

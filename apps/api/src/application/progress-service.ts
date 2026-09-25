@@ -1,6 +1,6 @@
 import type { EvaluationReport, ProblemSummaryDTO, ProgressDTO } from '@blueprint/shared';
 import { CRITERIA, CRITERION_IDS } from '@blueprint/shared';
-import type { AttemptRepository, EvaluationRepository, ProblemCatalog, SubmissionRepository } from '../domain/ports';
+import type { AttemptRepository, EvaluationRepository, ProblemCatalog, SampleDesigns, SubmissionRepository } from '../domain/ports';
 import { computeAchievements } from './achievements';
 import { toSubmissionSummary } from './dto';
 
@@ -12,6 +12,7 @@ export class ProgressService {
       attempts: AttemptRepository;
       submissions: SubmissionRepository;
       evaluations: EvaluationRepository;
+      samples?: SampleDesigns;
     },
   ) {}
 
@@ -38,6 +39,7 @@ export class ProgressService {
         tags: problem.tags,
         requirementCount: problem.functionalRequirements.length + problem.nonFunctionalRequirements.length,
         rubric: problem.rubric,
+        hasSample: Boolean(this.deps.samples?.get(problem.id)),
         progress: {
           attempts: problemAttempts.length,
           submissions: problemSubmissions.length,

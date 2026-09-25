@@ -118,6 +118,13 @@ describe('GodClassRule', () => {
     const found = run(new GodClassRule(), d);
     expect(found).toHaveLength(1);
     expect(found[0]?.evidence.entities).toEqual(['ParkingLot']);
+    expect(found[0]?.severity).toBe('major'); // 9 is clearly over the limit of 6
+  });
+
+  it('only nudges a class that is just over one limit', () => {
+    const d = goodParkingDesign();
+    d.entities[0]!.responsibilities = Array.from({ length: 7 }, (_, i) => `job ${i}`);
+    expect(run(new GodClassRule(), d)[0]?.severity).toBe('minor');
   });
 });
 
@@ -234,7 +241,7 @@ describe('TradeOffRule', () => {
     const titles = run(new TradeOffRule(), d).map((f) => f.title);
     expect(titles).toContain('1 trade-off is a slogan, not a trade-off');
     d.tradeOffs = [];
-    expect(run(new TradeOffRule(), d)[0]?.severity).toBe('major');
+    expect(run(new TradeOffRule(), d)[0]?.severity).toBe('critical'); // no evidence for the criterion at all
   });
 });
 

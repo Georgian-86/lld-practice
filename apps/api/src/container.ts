@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { PracticeService } from './application/practice-service';
 import { EvaluationService } from './application/evaluation-service';
 import { CurveballService } from './application/curveball-service';
@@ -19,6 +20,7 @@ import { ScoreAggregator } from './evaluation/score-aggregator';
 import { SubmissionParserRegistry } from './formats/parsers';
 import { openDatabase, type Database } from './infrastructure/database';
 import { InMemoryProblemCatalog } from './infrastructure/problem-catalog';
+import { InMemorySampleDesigns } from './infrastructure/sample-catalog';
 import {
   SqliteAttemptRepository,
   SqliteEvaluationRepository,
@@ -48,6 +50,7 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
   const clock = overrides.clock ?? systemClock;
   const ids = overrides.ids ?? randomIds;
   const problems = overrides.problems ?? InMemoryProblemCatalog.fromDirectory(config.problemsDir);
+  const samples = InMemorySampleDesigns.fromDirectory(join(config.problemsDir, 'samples'), problems.list().map((p) => p.id));
   const logger: WorkerLogger = overrides.logger ?? { info() {}, warn() {}, error() {} };
 
   const attempts = new SqliteAttemptRepository(db);
@@ -76,8 +79,9 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
     clock,
     ids,
     pollAfterMs: 1000,
+    samples,
   });
-  const progress = new ProgressService({ problems, attempts, submissions, evaluations });
+  const progress = new ProgressService({ problems, attempts, submissions, evaluations, samples });
   const lint = new LintService(problems, defaultRules());
   // The offline simulator only knows how to review, so curveballs fall back to the template there.
   const realProvider = config.llm.provider === 'anthropic' || config.llm.provider === 'groq';

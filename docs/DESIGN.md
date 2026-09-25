@@ -3,24 +3,30 @@
 ## 1. MVP in one paragraph
 
 A learner picks one of four problems (Parking Lot, Library Management, Vending
-Machine, Elevator System), reads the brief, and builds a **structured design** in
-a workspace. The design has classes and interfaces with responsibilities,
-relationships, requirement traceability, patterns, trade-offs and an extension
-answer, with a live class diagram. Work autosaves. On submit, the design is
-snapshotted and **evaluated in the background**: 16 deterministic rules run first,
-then an AI reviewer grounded on their findings. The learner watches progress, then
-gets a report with a weighted rubric score, prioritised findings (each tagged
-*Rule* or *AI*, linking into the editor), valid alternative approaches, and a
-"since last version" summary. They revise and resubmit, and can compare any two
-versions or see progress over time.
+Machine, Elevator System), reads the brief, and **draws a design on a UML canvas**:
+classes and interfaces with responsibilities and members, typed relationships,
+requirements dropped onto the classes that own them, and optional **scenario
+walkthroughs** (the ordered calls that carry out a requirement, checked against
+the diagram). Written sections cover patterns, trade-offs and an extension
+answer. Live checks run while drawing, and work autosaves. On submit, the design
+is snapshotted and **evaluated in the background**: 16 deterministic rules run
+first, then an AI reviewer grounded on their findings. The report gives a
+weighted rubric score, prioritised findings (each tagged *Rule* or *AI*, linking
+into the editor), the diagram annotated with them, and alternative approaches.
+The learner then revises, or takes a **curveball**: a change request from the
+problem's deck, or one aimed at the weakest point of change in their own design.
+The next report measures its **blast radius** (which classes were added, changed
+or left untouched). Every version is kept, for comparison and progress over time.
 
 ## 2. User flow
 
 ```
-Problems ─▶ Problem brief ─▶ Workspace ──submit──▶ Evaluation progress ─▶ Feedback report
-   ▲             │ (continue)   ▲   │ autosave              (poll)               │
-   │             └──────────────┘   └── hints, versions, diagram, Mermaid import │
-   └──────── Progress dashboard ◀── Compare versions ◀── "Revise design" ◀───────┘
+Problems ─▶ Brief ─▶ Workspace (canvas · walkthroughs · live checks) ──submit──▶ Evaluating (poll) ─▶ Report
+   ▲  │                  ▲        ▲ autosave · undo · interview timer                                  │
+   │  └ sample report ───┼────────┼────────────────────────────────────────────────────────────────▶  │
+   │                     │        └──── take a curveball (deck or aimed at the design) ◀───────────────┤
+   │                     └───────────── revise ◀───────────────────────────────────────────────────────┤
+   └──── Progress (scores, criteria, achievements) ◀── Compare versions ◀──────────────────────────────┘
 ```
 
 ## 3. Architecture
@@ -33,14 +39,15 @@ implements the ports, and `http` is a thin adapter.
 ```
 apps/web  (React, TanStack Query)  ──REST──▶  apps/api
                                                ├─ http/        Fastify routes, error mapping
-                                               ├─ application/ PracticeService, EvaluationService, ProgressService
-                                               ├─ domain/      Attempt, Submission, SubmissionLifecycle, ports
+                                               ├─ application/ PracticeService, EvaluationService, ProgressService,
+                                               │               LintService, CurveballService, achievements
+                                               ├─ domain/      Attempt, Submission, SubmissionLifecycle, PracticeContext, ports
                                                ├─ formats/     SubmissionParser registry (structured, mermaid)
                                                ├─ evaluation/  rules, LLM reviewer, pipeline, scoring, comparison
                                                ├─ worker/      EvaluationWorker (polls the durable queue)
                                                └─ infrastructure/ SQLite repos + job queue, problem catalogue
-packages/shared   design IR, problem schema, DTOs, Mermaid parser/generator (used by both sides)
-problems/*.json   problem catalogue: data, validated at startup
+packages/shared   design IR, problem schema, DTOs, Mermaid, scenario analysis, design diff (used by both sides)
+problems/*.json   problem catalogue (and problems/samples/): data, validated at startup
 ```
 
 ## 4. Core domain model
@@ -98,10 +105,23 @@ classDiagram
   }
   LlmDesignReviewer --> LlmClient
   AnthropicLlmClient ..|> LlmClient
+  GroqLlmClient ..|> LlmClient
   SimulatedLlmClient ..|> LlmClient
   TimeoutLlmClient ..|> LlmClient
   RetryingLlmClient ..|> LlmClient
   CachingLlmClient ..|> LlmClient
+
+  class PracticeContext {
+    +curveball: CurveballAnswer
+    +timing: InterviewTiming
+    +of(submission) PracticeContext
+  }
+  Submission ..> PracticeContext : practice mode it was made in
+  class CurveballService {
+    +adaptive(learner, submission) AdaptiveCurveball
+  }
+  CurveballService --> LlmClient : wording only (optional)
+  ScenarioRule ..|> DesignRule
 ```
 
 | Class / interface | Responsibility |
@@ -112,14 +132,27 @@ classDiagram
 | `DesignModel` (shared) | The normalised design IR. **Every format parses into it, and every evaluator reads only it.** |
 | `SubmissionParser` + registry | Strategy + Registry: one class per submission format. |
 | `DesignIndex` | Precomputed read-only view (degrees, implementors, cycles, hierarchy depth) so each rule is a few lines. |
-| `DesignRule` | One deterministic check → findings for one rubric criterion. 15 small classes. |
+| `DesignRule` | One deterministic check → findings for one rubric criterion. 16 small classes, including `ScenarioRule` for walkthroughs. |
 | `Evaluator` | Strategy for "anything that can judge a design". |
 | `EvaluationPipeline` | Composite: deterministic evaluators (must succeed), then LLM evaluators (their failure degrades the report to *partial*), then scoring. |
 | `LlmClient` + decorators | Port for text generation. Timeout, retry and caching are **Decorators**, so resilience policy lives in one place and is tested once. |
 | `ScoreAggregator` | Combines rule evidence and AI judgement per criterion, weighted by the problem's rubric. |
 | `JobQueue` / `EvaluationWorker` | Durable queue port (SQLite implementation) and the worker that drains it with backoff. |
+| `PracticeContext` | Value object: the practice mode a submission was made in (a curveball answered, interview timing). The single interpretation used by summaries and achievements. |
+| `CurveballService` | Picks the point of change a design is least ready for (deterministic, same matching as the scoring rule) and turns it into a change request. A model only rewords it; a template is the fallback. |
+| `diffDesigns` (shared) | Class-by-class change impact between two versions: added, modified (own code changed), untouched, plus the existing abstractions new classes plugged into. |
 
-## 5. Evaluation approach
+## 5. The five design questions, answered
+
+| Question | Answer | Evidence |
+|---|---|---|
+| What must a learner provide for an attempt to be meaningful? | Classes with responsibilities, typed relationships, requirement → class ownership, patterns *with a reason*, trade-offs, and an extension answer. Optionally, walkthroughs of key requirements. Each item is there because a rule or the reviewer checks it (see §6). | `packages/shared/src/design.ts`, `evaluation/rules/*` |
+| What makes feedback useful when many solutions are valid? | Scoring **properties** (is every requirement owned? is each point of change behind an abstraction?) instead of similarity to a reference answer. Findings name the learner's own classes, say whether a rule or the AI raised them, and suggest *when* an alternative is better. | `apps/api/test/unit/fairness.test.ts`: a strategy-and-inheritance design and an enum-based design with different names for every seam score 100 and 100 on the rules (90 and 88 with the offline reviewer). A god-class design scores 52 (42). |
+| Which parts are deterministic, and which need an LLM? | **Deterministic:** facts (coverage, cycles, dangling references, abstraction at a point of change, walkthrough validity, change impact, curveball targeting). **LLM:** judgement (cohesion, naming quality, alternatives, curveball wording), grounded on the facts, schema-validated, and capped (+25 above the evidence, 50 under a critical finding). | `evaluation/score-aggregator.ts`, `llm-reviewer.ts`, `curveball-service.ts` |
+| How would another evaluation approach or submission format fit? | A new format is a `SubmissionParser` into the one design model. A new evaluator is an `Evaluator` in the pipeline, a new check is a `DesignRule`, and a new model provider is an `LlmClient`. Two formats (structured, Mermaid) and three providers (Claude, Groq, simulator) already use these seams. | §8 |
+| What if evaluation is slow or fails? | Submit returns 202 at once, and the job lives in a durable queue. The AI call has a timeout, retries and a cache. If the AI still fails, the learner gets a rules-only report and can retry the AI review. | §7, integration tests "AI outage → partial report → retry", "crash → failed", "abandoned job recovery" |
+
+## 6. Evaluation approach
 
 **What the learner provides** (and why): responsibilities (to judge cohesion),
 relationships (coupling, ownership), **traceability** (the checkable form of
@@ -170,7 +203,7 @@ so it is shown as a measurement rather than scored.
 "fixed / still open / new" between versions is reliable for rule findings and
 best-effort for AI findings.
 
-## 6. When evaluation is slow or fails
+## 7. When evaluation is slow or fails
 
 - Submit returns immediately (`202`, status `submitted`). The client polls with
   the server-suggested interval and shows a stepper (checks → AI review → scoring).
@@ -185,7 +218,7 @@ best-effort for AI findings.
 - The same content is never evaluated twice by accident: an unchanged resubmit
   returns `409 duplicate_submission`, and identical prompts hit the LLM cache.
 
-## 7. Extensibility
+## 8. Extensibility
 
 - **New submission format** (e.g. a Java/TypeScript code skeleton): implement
   `SubmissionParser`, register it. Evaluators are untouched.
@@ -195,13 +228,15 @@ best-effort for AI findings.
 - **New problem:** add a JSON file. It is schema-validated at startup, and the
   rubric weights, synonyms, points of change and hints are data.
 - **New LLM provider:** implement `LlmClient`. The decorators and reviewer
-  are reused.
+  are reused, as Groq was added without touching the reviewer.
+- **New practice mode:** interpret it in `PracticeContext`, so summaries and
+  achievements pick it up in one place.
 - **Scaling (light HLD):** the web tier only enqueues. Move `EvaluationWorker`
   to its own process against a shared queue (swap `SqliteJobQueue` for
   Postgres/SQS behind `JobQueue`), use Postgres behind the repositories, put a
   concurrency limit on LLM calls, and stream status over SSE instead of polling.
 
-## 8. Key trade-offs
+## 9. Key trade-offs
 
 | Decision | Chosen | Cost / alternative |
 |---|---|---|
@@ -213,3 +248,5 @@ best-effort for AI findings.
 | Real-time updates | Polling with server hint | Slightly chattier than SSE, but trivial and robust through proxies. |
 | Identity | Anonymous per-browser learner id | No cross-device history; auth is out of scope. Only one module and the server's learner resolution would change. |
 | Offline AI | Simulated reviewer when no key is set | Heuristic quality only, so it is always labelled "AI (sim)" in the UI. |
+| Canvas vs. form | A UML canvas is the primary editor; the forms stay as tabs | More front-end code, but learners draw designs in interviews, and the canvas makes relationships and walkthroughs visible. |
+| Change impact | Measured and shown, not scored | A strong signal of open/closed design, but legitimate refactors also "change" classes, so penalising them would be unfair. |

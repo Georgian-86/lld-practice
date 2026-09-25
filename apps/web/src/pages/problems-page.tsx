@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemSummaryDTO } from '@blueprint/shared';
-import { ArrowRight, CheckCircle2, Clock, ListChecks, PenTool, Route, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, FileSearch, ListChecks, PenTool, Route, Sparkles, Zap } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, queryKeys } from '@/api/client';
 import { PageContainer } from '@/components/app-shell';
@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/misc';
 import { ScorePill, ScoreRing } from '@/components/ui/score';
 import { DifficultyBadge } from '@/features/problems/difficulty';
 import { HeroDiagram } from '@/features/problems/hero-diagram';
+import { useStartSample } from '@/features/problems/use-start-attempt';
 import { cn } from '@/lib/cn';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { plural, timeAgo } from '@/lib/format';
@@ -29,6 +30,8 @@ export function ProblemsPage() {
   const recent = attempts.data?.[0];
   // Suggest the easiest problem not tried yet (the "continue" card covers work in progress).
   const order = { easy: 0, medium: 1, hard: 2 } as const;
+  const sample = useStartSample();
+  const sampleProblem = data?.find((p) => p.hasSample);
   const starter = [...(data ?? [])].sort((a, b) => order[a.difficulty] - order[b.difficulty]).find((p) => p.progress.attempts === 0) ?? data?.[0];
   const practiced = data?.filter((p) => p.progress.submissions > 0).length ?? 0;
 
@@ -59,6 +62,11 @@ export function ProblemsPage() {
                     {recent ? `Try ${starter.title}` : `Start with ${starter.title}`}
                   </Button>
                 </Link>
+              )}
+              {sampleProblem && (
+                <Button size="lg" onClick={() => sample.mutate(sampleProblem.id)} loading={sample.isPending} icon={<FileSearch className="size-4" />}>
+                  See a sample report
+                </Button>
               )}
               <a href="#problems-heading" className="text-[13px] font-medium text-fg-2 underline-offset-4 hover:text-fg hover:underline">
                 Browse all problems

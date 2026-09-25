@@ -9,6 +9,7 @@ import type {
 } from '@blueprint/shared';
 import { isTerminal } from '@blueprint/shared';
 import type { Attempt } from '../domain/attempt';
+import { PracticeContext } from '../domain/practice-context';
 import type { Submission } from '../domain/submission';
 
 export function toProblemDTO(problem: Problem): ProblemDTO {
@@ -34,12 +35,10 @@ export function toSubmissionSummary(submission: Submission, report?: EvaluationR
 
 /** What the learner was practising when they submitted: a curveball, the interview timer. */
 export function submissionContext(draft: Draft, version: number, submittedAt: string): Pick<SubmissionSummaryDTO, 'curveballId' | 'timed'> {
-  const challenge = draft.challenge && draft.challenge.fromVersion < version ? draft.challenge : null;
-  const timer = draft.timer;
-  const used = timer ? (Date.parse(submittedAt) - Date.parse(timer.startedAt)) / 60000 : NaN;
+  const context = PracticeContext.of({ draft, version, submittedAt });
   return {
-    curveballId: challenge ? (challenge.curveballId ?? 'default') : null,
-    timed: timer && Number.isFinite(used) && used >= 0 ? { minutes: timer.minutes, usedMinutes: Math.round(used * 10) / 10 } : null,
+    curveballId: context.curveball?.curveballId ?? null,
+    timed: context.timing ? { minutes: context.timing.minutes, usedMinutes: context.timing.usedMinutes } : null,
   };
 }
 

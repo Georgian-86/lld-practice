@@ -283,3 +283,38 @@ describe('adaptive curveball over HTTP', () => {
     expect(other.statusCode).toBe(404);
   });
 });
+
+describe('sample report over HTTP', () => {
+  let t: TestApp;
+  beforeEach(async () => {
+    t = await createTestApp();
+  });
+  afterEach(async () => {
+    await t.app.close();
+  });
+
+  it('starts an attempt from the worked sample and evaluates it like any submission', async () => {
+    const catalogue = (await t.app.inject({ url: '/api/problems', headers: LEARNER })).json();
+    expect(catalogue.find((p: { id: string }) => p.id === 'parking-lot').hasSample).toBe(true);
+
+    const res = await t.app.inject({ method: 'POST', url: '/api/problems/parking-lot/sample', headers: LEARNER });
+    expect(res.statusCode).toBe(202);
+    const submission = res.json() as SubmissionDTO;
+    expect(submission).toMatchObject({ version: 1, status: 'submitted', problemId: 'parking-lot' });
+
+    await t.container.worker.drain();
+    const done = await getSubmission(t, submission.id);
+    expect(done.status).toBe('evaluated');
+    expect(done.evaluation!.overallScore).toBeGreaterThan(40);
+    expect(done.draft.design.flows).toHaveLength(1);
+
+    // It is the learner's own attempt: they can open and revise it.
+    const attempt = await t.app.inject({ url: `/api/attempts/${submission.attemptId}`, headers: LEARNER });
+    expect(attempt.statusCode).toBe(200);
+  });
+
+  it('404s for a problem without a sample', async () => {
+    const res = await t.app.inject({ method: 'POST', url: '/api/problems/elevator-system/sample', headers: LEARNER });
+    expect(res.statusCode).toBe(404);
+  });
+});

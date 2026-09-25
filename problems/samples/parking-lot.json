@@ -1,0 +1,275 @@
+{
+  "format": "structured",
+  "design": {
+    "entities": [
+      {
+        "id": "e1",
+        "name": "ParkingLot",
+        "kind": "class",
+        "responsibilities": [
+          "Entry point for park and unpark flows",
+          "Delegates spot selection and pricing"
+        ],
+        "methods": [
+          "park(vehicle): Ticket",
+          "unpark(ticket): Receipt"
+        ],
+        "attributes": [
+          "floors: List<Floor>"
+        ]
+      },
+      {
+        "id": "e2",
+        "name": "Floor",
+        "kind": "class",
+        "responsibilities": [
+          "Holds spots and tracks free spots per type"
+        ],
+        "methods": [
+          "findFree(type): ParkingSpot"
+        ],
+        "attributes": [
+          "spots: List<ParkingSpot>"
+        ]
+      },
+      {
+        "id": "e3",
+        "name": "ParkingSpot",
+        "kind": "abstract",
+        "responsibilities": [
+          "Knows its size and whether it is occupied"
+        ],
+        "methods": [
+          "canFit(vehicle): boolean",
+          "occupy(vehicle)",
+          "release()"
+        ],
+        "attributes": []
+      },
+      {
+        "id": "e4",
+        "name": "CompactSpot",
+        "kind": "class",
+        "responsibilities": [
+          "Fits motorcycles and cars"
+        ],
+        "methods": [],
+        "attributes": []
+      },
+      {
+        "id": "e5",
+        "name": "LargeSpot",
+        "kind": "class",
+        "responsibilities": [
+          "Fits any vehicle including trucks"
+        ],
+        "methods": [],
+        "attributes": []
+      },
+      {
+        "id": "e6",
+        "name": "Vehicle",
+        "kind": "abstract",
+        "responsibilities": [
+          "Has a plate and a size"
+        ],
+        "methods": [],
+        "attributes": [
+          "plate: String"
+        ]
+      },
+      {
+        "id": "e7",
+        "name": "Car",
+        "kind": "class",
+        "responsibilities": [
+          "Regular sized vehicle"
+        ],
+        "methods": [],
+        "attributes": []
+      },
+      {
+        "id": "e8",
+        "name": "Truck",
+        "kind": "class",
+        "responsibilities": [
+          "Large vehicle"
+        ],
+        "methods": [],
+        "attributes": []
+      },
+      {
+        "id": "e9",
+        "name": "Ticket",
+        "kind": "class",
+        "responsibilities": [
+          "Records entry time, spot and vehicle"
+        ],
+        "methods": [],
+        "attributes": [
+          "entryTime: Instant"
+        ]
+      },
+      {
+        "id": "e10",
+        "name": "PricingStrategy",
+        "kind": "interface",
+        "responsibilities": [
+          "Computes the fee for a ticket"
+        ],
+        "methods": [
+          "fee(ticket): Money"
+        ],
+        "attributes": []
+      },
+      {
+        "id": "e11",
+        "name": "HourlyPricing",
+        "kind": "class",
+        "responsibilities": [
+          "Charges per started hour"
+        ],
+        "methods": [],
+        "attributes": []
+      },
+      {
+        "id": "e12",
+        "name": "EntryGate",
+        "kind": "class",
+        "responsibilities": [
+          "Issues tickets and refuses entry when full"
+        ],
+        "methods": [
+          "enter(vehicle): Ticket"
+        ],
+        "attributes": []
+      }
+    ],
+    "relationships": [
+      {
+        "id": "r1",
+        "from": "ParkingLot",
+        "to": "Floor",
+        "type": "composition",
+        "label": "has"
+      },
+      {
+        "id": "r2",
+        "from": "Floor",
+        "to": "ParkingSpot",
+        "type": "composition"
+      },
+      {
+        "id": "r3",
+        "from": "CompactSpot",
+        "to": "ParkingSpot",
+        "type": "inheritance"
+      },
+      {
+        "id": "r4",
+        "from": "LargeSpot",
+        "to": "ParkingSpot",
+        "type": "inheritance"
+      },
+      {
+        "id": "r5",
+        "from": "Car",
+        "to": "Vehicle",
+        "type": "inheritance"
+      },
+      {
+        "id": "r6",
+        "from": "Truck",
+        "to": "Vehicle",
+        "type": "inheritance"
+      },
+      {
+        "id": "r7",
+        "from": "HourlyPricing",
+        "to": "PricingStrategy",
+        "type": "implementation"
+      },
+      {
+        "id": "r8",
+        "from": "ParkingLot",
+        "to": "PricingStrategy",
+        "type": "association",
+        "label": "prices with"
+      },
+      {
+        "id": "r9",
+        "from": "Ticket",
+        "to": "ParkingSpot",
+        "type": "association"
+      },
+      {
+        "id": "r10",
+        "from": "EntryGate",
+        "to": "ParkingLot",
+        "type": "dependency"
+      }
+    ],
+    "requirementMap": {
+      "FR-1": [
+        "Floor",
+        "ParkingSpot"
+      ],
+      "FR-2": [
+        "Vehicle",
+        "ParkingSpot"
+      ],
+      "FR-3": [
+        "EntryGate",
+        "Ticket"
+      ],
+      "FR-4": [
+        "PricingStrategy"
+      ],
+      "NFR-2": [
+        "PricingStrategy"
+      ]
+    },
+    "patterns": [
+      {
+        "id": "p1",
+        "name": "Strategy",
+        "appliedTo": [
+          "PricingStrategy",
+          "HourlyPricing"
+        ],
+        "justification": "Pricing changes often, so ParkingLot depends on an interface and each tariff is a new class instead of an edit."
+      }
+    ],
+    "tradeOffs": [
+      "I chose a pricing strategy over an enum because tariffs change often, at the cost of more classes."
+    ],
+    "extensionAnswer": "Add an EvSpot extending ParkingSpot that only fits electric vehicles, plus an EvPricing implementing PricingStrategy.",
+    "notes": "",
+    "flows": [
+      {
+        "id": "f1",
+        "requirementId": "FR-3",
+        "steps": [
+          {
+            "id": "s1",
+            "from": "EntryGate",
+            "to": "ParkingLot",
+            "message": "park(vehicle)"
+          },
+          {
+            "id": "s2",
+            "from": "ParkingLot",
+            "to": "Floor",
+            "message": "findFree(type)"
+          },
+          {
+            "id": "s3",
+            "from": "ParkingLot",
+            "to": "PricingStrategy",
+            "message": "fee(ticket)"
+          }
+        ]
+      }
+    ]
+  }
+}

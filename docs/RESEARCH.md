@@ -44,6 +44,12 @@ Internal details of commercial products are not claimed.)
   alternatives, which is exactly what a strong candidate needs to learn to defend.
 - **No improvement loop.** Tools grade one attempt at a time and don't show what
   a revision actually fixed.
+- **Extensibility is asked about, never tested.** "What if we add EV charging?"
+  is the most common follow-up question. Tools accept any prose answer, but
+  nothing checks whether the design would actually absorb the change.
+- **Diagrams are static.** A class diagram can't show whether the classes can
+  collaborate to fulfil a requirement, which is what the "walk me through
+  parking a car" question tests.
 
 ## 4. Product direction
 
@@ -66,6 +72,14 @@ review → try again*.
 4. **Iteration is the unit of progress.** Versions are kept. The report shows what
    was fixed since the last version, and a progress view shows which criteria are
    improving.
+5. **Test extensibility by changing the requirements.** After feedback, the
+   learner takes a *curveball*: a change request from the problem's deck, or one
+   aimed at the point of change their own design is least ready for. The next
+   report measures the blast radius (classes added vs. existing classes changed).
+   That turns the open/closed principle from a slogan into a measurement.
+6. **Make collaboration checkable.** Walkthroughs (ordered calls for a
+   requirement) are validated against the drawn relationships and rendered as
+   sequence diagrams.
 
-Out of scope for the MVP: accounts, authoring UI, code execution, and live
-interviewer mode (listed as future work).
+Out of scope for the MVP: accounts, an authoring UI, code execution, and a
+live (human or voice) interviewer. A timed interview mode covers pacing practice.

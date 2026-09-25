@@ -127,6 +127,15 @@ export async function buildApp(container: Container, options: AppOptions = {}): 
     return practice.getSubmission(learner(request), submissionId);
   });
 
+  // Starts an attempt from the problem's worked sample and submits it (a report in seconds).
+  app.post('/api/problems/:problemId/sample', async (request, reply) => {
+    const { problemId } = params({ problemId: id }, request);
+    const submission = await practice.startSample(learner(request), problemId);
+    container.worker.notify();
+    reply.status(202);
+    return submission;
+  });
+
   // A curveball aimed at the weakest point of change in this submitted design.
   app.post('/api/submissions/:submissionId/curveball', async (request) => {
     const { submissionId } = params({ submissionId: id }, request);

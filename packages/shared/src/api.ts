@@ -32,6 +32,8 @@ export interface ProblemSummaryDTO {
   tags: string[];
   requirementCount: number;
   rubric: Record<CriterionId, number>;
+  /** A worked sample exists: "see a sample report" is available. */
+  hasSample: boolean;
   progress: {
     attempts: number;
     submissions: number;

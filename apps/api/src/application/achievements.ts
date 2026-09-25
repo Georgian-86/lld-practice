@@ -1,5 +1,6 @@
 import type { AchievementDTO, Difficulty, EvaluationReport } from '@blueprint/shared';
 import { analyseFlow, diffDesigns } from '@blueprint/shared';
+import { PracticeContext } from '../domain/practice-context';
 import type { SubmissionSnapshot } from '../domain/submission';
 
 export interface AchievementInput {
@@ -30,9 +31,9 @@ const score = (ctx: Context, s: SubmissionSnapshot) => ctx.report(s)?.overallSco
 
 /** A curveball answer compared with the version it was taken after. */
 function curveballImpact(s: SubmissionSnapshot, ctx: Context) {
-  const challenge = s.draft.challenge;
-  if (!challenge || challenge.fromVersion >= s.version) return null;
-  const base = ctx.ordered.find((b) => b.attemptId === s.attemptId && b.version === challenge.fromVersion);
+  const curveball = PracticeContext.of(s).curveball;
+  if (!curveball) return null;
+  const base = ctx.ordered.find((b) => b.attemptId === s.attemptId && b.version === curveball.fromVersion);
   return base ? diffDesigns(base.design, s.design) : null;
 }
 
@@ -77,9 +78,9 @@ const DEFINITIONS: Definition[] = [
     title: 'Beat the clock',
     description: 'Score 70 or more on a timed interview, submitted within the time.',
     qualifies: (s, ctx) => {
-      const t = s.draft.timer;
+      const timing = PracticeContext.of(s).timing;
       const sc = score(ctx, s);
-      return Boolean(t && sc !== undefined && sc >= 70 && Date.parse(s.submittedAt) - Date.parse(t.startedAt) <= t.minutes * 60_000);
+      return Boolean(timing?.withinTime && sc !== undefined && sc >= 70);
     },
   },
   {

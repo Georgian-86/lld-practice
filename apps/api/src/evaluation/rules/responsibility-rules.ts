@@ -27,7 +27,9 @@ export class GodClassRule implements DesignRule {
           ruleId: this.id,
           criterionId: this.criterionId,
           kind: 'issue',
-          severity: reasons.length > 1 ? 'major' : 'minor',
+          // Borderline (just over one limit) is a nudge; several signals, or clearly over, is a real problem.
+          severity:
+            reasons.length > 1 || entity.responsibilities.length >= GOD_CLASS_LIMITS.responsibilities + 2 ? 'major' : 'minor',
           key: entity.name,
           title: `${entity.name} may be doing too much`,
           message: `${entity.name} has ${reasons.join(' and ')}. Classes like this change for many unrelated reasons, which makes them fragile.`,
