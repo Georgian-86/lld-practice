@@ -159,3 +159,12 @@ export const IMPACT_VERDICT_TEXT: Record<ImpactVerdict, { title: string; body: s
 export function curveballFor<C extends { id: string }>(curveballs: C[], id: string | undefined): C | undefined {
   return (id && curveballs.find((c) => c.id === id)) || curveballs[0];
 }
+
+/** What a challenge asks: its own generated text, or the deck entry it names. */
+export function challengeCurveball<C extends { id: string; title: string; prompt: string }>(
+  curveballs: C[],
+  challenge: { curveballId?: string; custom?: { title: string; prompt: string } } | undefined,
+): { title: string; prompt: string } | undefined {
+  if (!challenge) return undefined;
+  return challenge.custom ?? curveballFor(curveballs, challenge.curveballId);
+}

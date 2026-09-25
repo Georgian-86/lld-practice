@@ -127,6 +127,12 @@ export async function buildApp(container: Container, options: AppOptions = {}): 
     return practice.getSubmission(learner(request), submissionId);
   });
 
+  // A curveball aimed at the weakest point of change in this submitted design.
+  app.post('/api/submissions/:submissionId/curveball', async (request) => {
+    const { submissionId } = params({ submissionId: id }, request);
+    return container.curveballs.adaptive(learner(request), submissionId);
+  });
+
   app.post('/api/submissions/:submissionId/retry', async (request, reply) => {
     const { submissionId } = params({ submissionId: id }, request);
     const submission = await practice.retryEvaluation(learner(request), submissionId);

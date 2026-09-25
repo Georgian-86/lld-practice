@@ -147,6 +147,14 @@ export const challengeSchema = z.object({
   fromVersion: z.number().int().min(1).max(1000),
   /** Which of the problem's curveballs; absent on older drafts (means the first). */
   curveballId: z.string().max(64).optional(),
+  /** A curveball generated for this learner's design (not from the problem's deck). */
+  custom: z
+    .object({
+      title: z.string().min(1).max(80),
+      prompt: z.string().min(1).max(600),
+      variationPoints: z.array(z.string().max(64)).max(5),
+    })
+    .optional(),
   acceptedAt: z.string().max(40),
 });
 export type Challenge = z.infer<typeof challengeSchema>;

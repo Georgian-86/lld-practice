@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/misc';
 import { EvaluationProgress } from '@/features/feedback/evaluation-progress';
 import { FeedbackReport } from '@/features/feedback/feedback-report';
+import { useAchievementToasts } from '@/features/progress/use-achievement-toasts';
 import { SubmissionStatusBadge } from '@/features/workspace/sidebar';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { formatDateTime } from '@/lib/format';
@@ -52,6 +53,8 @@ export function SubmissionPage() {
     }
     wasSettled.current = settled;
   }, [settled, submission, queryClient]);
+
+  useAchievementToasts(settled && Boolean(submission?.evaluation));
 
   const retry = useMutation({
     mutationFn: () => api.retry(submissionId),

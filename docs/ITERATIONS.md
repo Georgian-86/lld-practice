@@ -302,3 +302,45 @@ from that `main`.
    yet.
 4. Still carried over: Groq has not been verified live, pending the first Render
    deploy.
+
+---
+
+## Iteration 8: curveballs aimed at your design, and achievement moments
+
+PR #2 was merged, and this iteration starts from that `main`.
+
+**Done:**
+- **Adaptive curveball ("Aim one at my design").** `POST /api/submissions/:id/curveball`
+  finds the point of change the submitted design is least ready for: first one
+  with no abstraction, then an abstraction with no implementations, then the
+  least-exercised seam. It uses the same keyword matching as the scoring rule, so
+  it agrees with the report. It names the class that holds the behaviour today
+  and turns that into a change request.
+  - Wording: when a real model is configured (Groq or Claude), it writes the
+    curveball in an interviewer's voice, told not to hint at a solution. Its JSON
+    is validated with Zod, and any failure or unusable answer falls back to a
+    deterministic template. The offline simulator always uses the template.
+  - The generated curveball is stored in the draft's challenge (`custom`), so the
+    workspace banner, change impact and result card work exactly as for deck
+    curveballs.
+  - The card explains why it was chosen ("Aimed at fee calculation: your
+    least-exercised seam (PricingStrategy)") and is labelled *AI* or *Tailored*.
+- **Achievement toasts:** when a report finishes, newly earned achievements are
+  announced once per browser, with a link to Progress. A learner with history on
+  a new browser is caught up silently rather than flooded.
+- **Toast contrast fix:** sonner's rich colours failed WCAG AA (4.25:1). They are
+  now mapped onto our contrast-checked tokens. The e2e audit also reports the
+  measured colours and waits for toast transitions to settle.
+- Tests: target selection and template wording (3), the service with valid,
+  invalid and failing model answers and ownership (3), HTTP (template wording,
+  404 for another learner), and e2e steps for the toast after v1 and for
+  generating, taking and opening an adaptive curveball.
+
+### Critique / backlog
+1. The adaptive curveball targets one point of change at a time. A harder mode
+   could combine two (e.g. a new pricing rule *and* a new payment method).
+2. The AI wording path is covered by unit tests with a fake model only. It will
+   first run for real on the Render deploy with `GROQ_API_KEY`.
+3. Achievement toasts depend on the report page being open when evaluation
+   finishes. A learner who navigates away sees the achievement on Progress, not
+   as a toast.

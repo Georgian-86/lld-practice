@@ -1,5 +1,6 @@
 import { PracticeService } from './application/practice-service';
 import { EvaluationService } from './application/evaluation-service';
+import { CurveballService } from './application/curveball-service';
 import { LintService } from './application/lint-service';
 import { ProgressService } from './application/progress-service';
 import type { AppConfig } from './config';
@@ -34,6 +35,8 @@ export interface ContainerOverrides {
   problems?: ProblemCatalog;
   /** Replace the LLM transport (tests inject fakes here). `null` disables AI review. */
   llmClient?: LlmClient | null;
+  /** Model used to word adaptive curveballs; defaults to the reviewer's when it is a real provider. */
+  curveballLlm?: LlmClient | null;
   logger?: WorkerLogger;
 }
 
@@ -76,6 +79,13 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
   });
   const progress = new ProgressService({ problems, attempts, submissions, evaluations });
   const lint = new LintService(problems, defaultRules());
+  // The offline simulator only knows how to review, so curveballs fall back to the template there.
+  const realProvider = config.llm.provider === 'anthropic' || config.llm.provider === 'groq';
+  const curveballs = new CurveballService({
+    problems,
+    submissions,
+    llm: overrides.curveballLlm !== undefined ? overrides.curveballLlm : realProvider ? llmClient : null,
+  });
   const worker = new EvaluationWorker(queue, evaluationService, clock, config.worker, logger);
 
   return {
@@ -84,6 +94,7 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
     practice,
     progress,
     lint,
+    curveballs,
     evaluationService,
     pipeline,
     worker,

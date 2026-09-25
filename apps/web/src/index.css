@@ -271,3 +271,24 @@
 .blueprint-canvas .react-flow__edge:focus-visible {
   outline: none;
 }
+
+/* Toasts: sonner's rich colours mapped onto our contrast-checked tokens (both themes).
+   Sonner sets these on [data-sonner-toaster][data-sonner-theme] from a style tag it injects later,
+   so the selector needs higher specificity to win. */
+[data-sonner-toaster][data-sonner-toaster][data-sonner-theme] {
+  --success-bg: var(--success-soft);
+  --success-border: color-mix(in srgb, var(--success) 35%, transparent);
+  --success-text: var(--success-soft-fg);
+  --error-bg: var(--danger-soft);
+  --error-border: color-mix(in srgb, var(--danger) 35%, transparent);
+  --error-text: var(--danger-soft-fg);
+  --warning-bg: var(--warning-soft);
+  --warning-border: color-mix(in srgb, var(--warning) 35%, transparent);
+  --warning-text: var(--warning-soft-fg);
+  --info-bg: var(--info-soft);
+  --info-border: color-mix(in srgb, var(--info) 35%, transparent);
+  --info-text: var(--info-soft-fg);
+}
+[data-sonner-toast][data-rich-colors='true'] [data-description] {
+  color: inherit;
+}
