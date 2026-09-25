@@ -139,6 +139,15 @@ await shot(page, '10-workspace-hints', false);
 step('Submit v1');
 await page.getByRole('button', { name: 'Submit for review' }).click();
 await page.getByRole('dialog').waitFor();
+await page.waitForTimeout(300);
+{
+  // Regression: dialogs must stay centred after their entry animation ends.
+  const box = await page.getByRole('dialog').boundingBox();
+  const vp = page.viewportSize();
+  const dx = Math.abs(box.x + box.width / 2 - vp.width / 2);
+  const dy = Math.abs(box.y + box.height / 2 - vp.height / 2);
+  if (dx > 2 || dy > 2) problems.push(`[layout] submit dialog is off-centre by (${dx.toFixed(0)}, ${dy.toFixed(0)})px`);
+}
 await shot(page, '11-submit-dialog', false);
 await audit(page, 'submit dialog');
 await page.getByRole('dialog').getByRole('button', { name: 'Submit', exact: true }).click();

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "e2e": "node e2e/run.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo": "node e2e/demo.mjs"
   },
   "dependencies": {
     "@blueprint/shared": "*",

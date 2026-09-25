@@ -12,3 +12,4 @@ playwright-report
 apps/web/e2e/screenshots
 .vercel
 data/
+apps/web/e2e/demo
