@@ -87,7 +87,7 @@ const page = await newPage();
 step('Home');
 await page.goto(BASE);
 await page.getByRole('heading', { name: 'Problems' }).waitFor();
-await page.getByText('Parking Lot').first().waitFor();
+await page.getByRole('heading', { name: 'Parking Lot', exact: true }).waitFor();
 await page.waitForTimeout(1600); // let the hero diagram finish assembling
 await shot(page, '01-home');
 await audit(page, 'home');
@@ -326,13 +326,14 @@ await shot(page, '14b-feedback-walkthrough', false);
 
 step('Aim a curveball at the design');
 await page.getByRole('button', { name: /Aim one at my design/ }).click();
-await page.getByRole('radio', { name: /Tailored/ }).waitFor();
-await page.getByRole('radio', { name: /Tailored/ }).scrollIntoViewIfNeeded();
+await page.getByRole('radio', { name: /Aimed at/ }).waitFor();
+await page.getByRole('radio', { name: /Aimed at/ }).scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await shot(page, '14c-adaptive-curveball', false);
 await audit(page, 'adaptive curveball');
 await page.getByRole('button', { name: 'Take this curveball' }).click();
-await page.getByRole('status').filter({ hasText: /Curveball: A new/ }).waitFor();
+// The title is the template's offline, or the model's wording when a real AI reviewer is configured.
+await page.getByRole('status').filter({ hasText: /Curveball: \S/ }).waitFor();
 await page.goBack();
 await page.getByText('Rubric breakdown').waitFor();
 
@@ -406,7 +407,7 @@ await audit(dark, 'dark workspace');
 step('Mobile');
 const mobile = await newPage({ width: 390, height: 844 }, 'light', learner);
 await mobile.goto(BASE);
-await mobile.getByText('Parking Lot').first().waitFor();
+await mobile.getByRole('heading', { name: 'Parking Lot', exact: true }).waitFor();
 await shot(mobile, '21-mobile-home');
 await audit(mobile, 'mobile home');
 await mobile.goto(`${BASE}/submissions/${v1}`);

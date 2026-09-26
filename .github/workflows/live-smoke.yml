@@ -1,0 +1,44 @@
+name: Live smoke test
+
+# Runs the full browser walkthrough against a deployed instance (by default the
+# Render deployment), with its real AI reviewer and database. Start it from the
+# Actions tab (Run workflow) once Render has deployed the commit you want to test.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: URL of the deployed app
+        default: https://blueprint-lld.onrender.com
+        required: true
+
+jobs:
+  live:
+    name: E2E against ${{ inputs.base_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Wake the service (free instances sleep when idle)
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf -m 20 "${{ inputs.base_url }}/api/health"; then echo; exit 0; fi
+            echo "waiting for ${{ inputs.base_url }} ($i)"; sleep 10
+          done
+          echo "The service did not become healthy"; exit 1
+      - run: npm run e2e
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-screenshots
+          path: apps/web/e2e/screenshots/
+          if-no-files-found: ignore
