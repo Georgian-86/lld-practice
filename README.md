@@ -47,7 +47,7 @@ where a design can improve:
 Design answers to the brief's five questions are in
 [`docs/DESIGN.md` §5](docs/DESIGN.md#5-the-five-design-questions-answered).
 
-| | |
+| Document | Where |
 |---|---|
 | Research note | [`docs/RESEARCH.md`](docs/RESEARCH.md) |
 | Design note | [`docs/DESIGN.md`](docs/DESIGN.md) (classes, interfaces, evaluation, trade-offs) |
@@ -175,7 +175,7 @@ apps/api      Fastify API + in-process evaluation worker (TypeScript)
                    LLM decorators (timeout/retry/cache), pipeline, scoring, comparison
   application/     PracticeService, EvaluationService, ProgressService, LintService,
                    CurveballService, achievements
-  infrastructure/  SQLite repositories + durable job queue, problem catalogue
+  infrastructure/  SQLite or Postgres repositories + durable job queue, problem catalogue
 apps/web      React + TanStack Query + Tailwind; workspace editor, report, compare, progress
 packages/shared  Design IR, problem schema, DTOs, Mermaid, walkthrough analysis, design diff
 problems/     Problem catalogue as validated JSON (rubric weights, points of change, hints,

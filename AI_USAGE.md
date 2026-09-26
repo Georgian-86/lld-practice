@@ -32,8 +32,8 @@ suggestion was *not* the one that shipped, or where it had to be constrained.
 
 - **Suggested:** Redis + BullMQ for the job queue, and WebSockets for status updates.
 - **Decision: rejected for the MVP.** The brief says a monolith is fine and the
-  focus is LLD. The job queue is a `JobQueue` interface with a SQLite
-  implementation (atomic claim, retries with backoff, stale-lock recovery on boot),
+  focus is LLD. The job queue is a `JobQueue` interface with SQLite and Postgres
+  implementations (atomic claim, retries with backoff, stale-lock recovery on boot),
   and the client polls with a server-suggested interval. This gives the same
   reliability properties for a prototype with zero extra infrastructure, and the
   interface keeps the swap cheap. What *was* kept from the suggestion is the
@@ -84,9 +84,24 @@ suggestion was *not* the one that shipped, or where it had to be constrained.
   against the deliverables led to the fairness test, which exposed two scoring
   rules as too lenient (an empty trade-offs section scored 80, and a class with 8
   responsibilities was only a "minor" issue). Both were recalibrated.
-- **Deployment target and provider.** Render with a persistent disk was chosen
-  over a serverless host (SQLite and an in-process worker need a long-running
-  process). Groq was added as a provider because it was the key available.
+- **Free deployment on Render + Supabase.** The AI's first plan used a paid
+  Render persistent disk for SQLite. The human asked for a free setup and
+  proposed Supabase, which led to the Postgres storage adapter (same repository
+  and queue ports, tested on both). Groq was added as a provider because it was
+  the key available.
+
+## 6. "Healthy" is not the same as "working": checking the analysis on the live site
+
+- **Suggested:** treat the deployment as verified because `/api/health` reported
+  the Groq reviewer and the browser walkthrough passed.
+- **Decision: rejected.** A live check now submits a weak, a reasonable and an
+  improved design through the API and fails unless the scores come out in that
+  order, the AI review really ran (not the simulator), and the AI cites only
+  classes that exist. Its first run showed that **every live review had silently
+  fallen back to rules only**: Groq had retired the configured model, and the
+  health endpoint only reports configuration. The reviewer moved to
+  `openai/gpt-oss-120b`; the same check also caught a lenient god-class rule and a
+  rate-limit retry that ignored `retry-after`.
 
 ## Where AI was *not* used for judgement
 
