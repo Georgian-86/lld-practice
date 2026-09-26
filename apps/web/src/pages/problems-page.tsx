@@ -1,27 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AttemptDTO, ProblemSummaryDTO } from '@blueprint/shared';
-import { ArrowRight, CheckCircle2, Clock, FileSearch, ListChecks, PenTool, Route, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, ListChecks, PenTool } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, queryKeys } from '@/api/client';
 import { PageContainer } from '@/components/app-shell';
 import { ErrorView } from '@/components/error-view';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/misc';
 import { ScorePill, ScoreRing } from '@/components/ui/score';
 import { DifficultyBadge } from '@/features/problems/difficulty';
-import { HeroDiagram } from '@/features/problems/hero-diagram';
+import { LandingFeatures, LandingHero, LandingSteps } from '@/features/problems/landing';
 import { useStartSample } from '@/features/problems/use-start-attempt';
 import { cn } from '@/lib/cn';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { plural, timeAgo } from '@/lib/format';
-
-const FEATURES = [
-  { icon: PenTool, title: 'Draw real UML', text: 'Classes, interfaces and proper relationship notation on a canvas, checked live as you draw.' },
-  { icon: Route, title: 'Walk it through', text: 'Click classes in call order to prove a requirement works, and get a sequence diagram of it.' },
-  { icon: Zap, title: 'Take the curveball', text: 'The interviewer changes the requirements. See how many existing classes your design had to touch.' },
-];
 
 export function ProblemsPage() {
   useDocumentTitle(undefined);
@@ -36,84 +29,38 @@ export function ProblemsPage() {
   const practiced = data?.filter((p) => p.progress.submissions > 0).length ?? 0;
 
   return (
-    <PageContainer>
-      <section className="relative -mx-4 mb-10 overflow-hidden rounded-none border-y border-border bg-surface sm:mx-0 sm:rounded-2xl sm:border">
-        <div className="blueprint-grid absolute inset-0" aria-hidden />
-        <div className="relative grid grid-cols-1 items-center gap-6 p-6 sm:p-10 lg:grid-cols-[1.05fr_1fr]">
-          <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary-soft-fg">
-              <Sparkles className="size-3.5" /> Low-level design, practised like the real interview
-            </span>
-            <h1 className="mt-4 text-[30px] font-semibold leading-[1.1] tracking-tight text-fg sm:text-[40px]">
-              Draw the design.
-              <br />
-              Walk it through.
-              <br />
-              <span className="text-ai">Survive the curveball.</span>
-            </h1>
-            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
-              Every submission is checked by deterministic design rules and reviewed by AI. You’re scored on properties of your design, not on how closely it
-              matches one “right” answer.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              {starter && (
-                <Link to={`/problems/${starter.id}`}>
-                  <Button variant="primary" size="lg" icon={<ArrowRight className="size-4" />}>
-                    {recent ? `Try ${starter.title}` : `Start with ${starter.title}`}
-                  </Button>
-                </Link>
-              )}
-              {sampleProblem && (
-                <Button size="lg" onClick={() => sample.mutate(sampleProblem.id)} loading={sample.isPending} icon={<FileSearch className="size-4" />}>
-                  See a sample report
-                </Button>
-              )}
-              <a href="#problems-heading" className="text-[13px] font-medium text-fg-2 underline-offset-4 hover:text-fg hover:underline">
-                Browse all problems
-              </a>
+    <>
+      <LandingHero
+        primary={starter ? { to: `/problems/${starter.id}`, label: recent ? `Try ${starter.title}` : `Start with ${starter.title}` } : undefined}
+        onSample={sampleProblem ? () => sample.mutate(sampleProblem.id) : undefined}
+        sampleLoading={sample.isPending}
+      />
+      <LandingFeatures />
+      <LandingSteps />
+      <PageContainer className="pt-14">
+        {recent && <ContinueCard attempt={recent} />}
+
+        <section aria-labelledby="problems-heading">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <h2 id="problems-heading" className="text-[24px] font-semibold tracking-tight text-fg">
+                Problems
+              </h2>
+              <p className="text-[13px] text-muted">{data ? `${plural(data.length, 'problem')} · ${practiced} practiced` : 'Loading catalogue…'}</p>
             </div>
           </div>
-          <HeroDiagram className="mx-auto hidden w-full max-w-[540px] sm:block" />
-        </div>
-        <ul className="relative grid grid-cols-1 border-t border-border bg-surface/80 backdrop-blur sm:grid-cols-3">
-          {FEATURES.map((f, i) => (
-            <li key={f.title} className={cn('flex gap-3 p-5', i > 0 && 'border-t border-border sm:border-l sm:border-t-0')}>
-              <span className={cn('grid size-8 shrink-0 place-items-center rounded-lg', i === 2 ? 'bg-ai-soft text-ai' : 'bg-primary-soft text-primary-soft-fg')}>
-                <f.icon className="size-4" />
-              </span>
-              <div>
-                <div className="text-[13.5px] font-semibold text-fg">{f.title}</div>
-                <div className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{f.text}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {recent && <ContinueCard attempt={recent} />}
-
-      <section aria-labelledby="problems-heading">
-        <div className="mb-4 flex items-end justify-between">
-          <div>
-            <h2 id="problems-heading" className="text-lg font-semibold tracking-tight">
-              Problems
-            </h2>
-            <p className="text-[13px] text-muted">
-              {data ? `${plural(data.length, 'problem')} · ${practiced} practiced` : 'Loading catalogue…'}
-            </p>
-          </div>
-        </div>
-        {error ? (
-          <ErrorView error={error} onRetry={() => void refetch()} compact />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {isLoading || !data
-              ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[212px] rounded-xl" />)
-              : data.map((problem) => <ProblemCard key={problem.id} problem={problem} />)}
-          </div>
-        )}
-      </section>
-    </PageContainer>
+          {error ? (
+            <ErrorView error={error} onRetry={() => void refetch()} compact />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {isLoading || !data
+                ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[212px] rounded-xl" />)
+                : data.map((problem) => <ProblemCard key={problem.id} problem={problem} />)}
+            </div>
+          )}
+        </section>
+      </PageContainer>
+    </>
   );
 }
 
