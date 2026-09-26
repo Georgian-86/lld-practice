@@ -9,18 +9,22 @@
     "start": "node --disable-warning=ExperimentalWarning dist/server.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test:postgres": "TEST_STORAGE=postgres vitest run test/integration"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
     "@blueprint/shared": "*",
     "@fastify/static": "^8.3.0",
     "fastify": "^5.6.1",
+    "pg": "^8.23.0",
     "pino": "^10.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^22.18.0",
+    "@types/pg": "^8.23.1",
     "esbuild": "^0.25.11",
     "tsx": "^4.20.6",
     "vitest": "^3.2.4"

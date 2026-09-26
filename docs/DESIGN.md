@@ -45,7 +45,7 @@ apps/web  (React, TanStack Query)  ──REST──▶  apps/api
                                                ├─ formats/     SubmissionParser registry (structured, mermaid)
                                                ├─ evaluation/  rules, LLM reviewer, pipeline, scoring, comparison
                                                ├─ worker/      EvaluationWorker (polls the durable queue)
-                                               └─ infrastructure/ SQLite repos + job queue, problem catalogue
+                                               └─ infrastructure/ SQLite or Postgres repos + job queue, problem catalogue
 packages/shared   design IR, problem schema, DTOs, Mermaid, scenario analysis, design diff (used by both sides)
 problems/*.json   problem catalogue (and problems/samples/): data, validated at startup
 ```
@@ -244,7 +244,7 @@ best-effort for AI findings.
 | Scoring basis | Property rubric | Less "precise" than similarity to a reference, but fair to alternative designs. |
 | AI role | Grounded, capped judge | Less creative than an unconstrained reviewer, but consistent and can't contradict facts. |
 | Queue | SQLite table + in-process worker | Not horizontally scalable as is, but zero infrastructure. The interface allows a swap. |
-| Storage | SQLite (Node built-in driver) | Single node, but no setup, and it's behind repositories. |
+| Storage | SQLite (Node built-in driver) by default; Postgres when `DATABASE_URL` is set | SQLite needs no setup. Postgres (e.g. free Supabase) is for hosts without a persistent disk. Both implement the same repository and queue ports, and the HTTP suite runs on each. |
 | Real-time updates | Polling with server hint | Slightly chattier than SSE, but trivial and robust through proxies. |
 | Identity | Anonymous per-browser learner id | No cross-device history; auth is out of scope. Only one module and the server's learner resolution would change. |
 | Offline AI | Simulated reviewer when no key is set | Heuristic quality only, so it is always labelled "AI (sim)" in the UI. |

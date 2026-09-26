@@ -7,6 +7,9 @@ import type { LlmClient } from '../../src/evaluation/llm/llm-client';
 import { simulateReview } from '../../src/evaluation/llm/simulated-client';
 import { buildApp } from '../../src/http/app';
 import { openDatabase } from '../../src/infrastructure/database';
+import { postgresStorage } from '../../src/infrastructure/postgres';
+import { sqliteStorage, type Storage } from '../../src/infrastructure/storage';
+import { pgliteClient } from './pglite';
 import { InMemoryProblemCatalog } from '../../src/infrastructure/problem-catalog';
 
 export const PROBLEMS_DIR = resolve(import.meta.dirname, '../../../../problems');
@@ -45,15 +48,27 @@ export function fakeLlm(overrides: Partial<LlmClient> = {}): LlmClient {
   };
 }
 
+/**
+ * Which persistence adapter the HTTP tests run on. `TEST_STORAGE=postgres`
+ * runs the whole integration suite against real Postgres (PGlite); the
+ * default is in-memory SQLite. CI runs both.
+ */
+export async function testStorage(ids: IdGenerator, clock: Clock): Promise<Storage> {
+  return process.env.TEST_STORAGE === 'postgres'
+    ? postgresStorage(pgliteClient(), ids, clock, 'pglite')
+    : sqliteStorage(openDatabase(':memory:'), ids, clock);
+}
+
 export async function createTestApp(options: { llm?: LlmClient | null } = {}) {
   const config = loadConfig({ NODE_ENV: 'test', PROBLEMS_DIR, LLM_PROVIDER: 'none' });
   const clock = new FakeClock();
+  const ids = sequentialIds();
   const container: Container = createContainer(
     { ...config, worker: { ...config.worker, retryBaseMs: 0 } },
     {
-      db: openDatabase(':memory:'),
+      storage: await testStorage(ids, clock),
       clock,
-      ids: sequentialIds(),
+      ids,
       problems: catalog,
       llmClient: options.llm === undefined ? fakeLlm() : options.llm,
     },

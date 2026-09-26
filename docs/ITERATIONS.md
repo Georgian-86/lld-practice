@@ -388,3 +388,32 @@ product, and more missing in evidence and documentation.
 2. Only Parking Lot has a worked sample.
 3. The fairness test covers one problem. Each problem should have its own pair
    of valid designs.
+
+---
+
+## Iteration 10: free deployment (Render + Supabase Postgres)
+
+**Why:** the Render Blueprint needed a paid plan, because only paid plans have a
+persistent disk for the SQLite file. The goal was a deployment that costs nothing.
+
+**Done:**
+- **A Postgres storage adapter**, behind the same ports as SQLite (attempts,
+  submissions, evaluations, and the job queue with `FOR UPDATE SKIP LOCKED`).
+  It is used when `DATABASE_URL` is set, and the tables are created on start.
+  `Storage` is now one object that the container receives, so the application
+  layer doesn't know which engine it runs on.
+- **Tested on real Postgres twice:**
+  - the whole HTTP integration suite runs on PGlite (Postgres compiled to WASM),
+    and CI now runs it (`npm run test:postgres`);
+  - the production build ran against a real PostgreSQL 16 server through the
+    `pg` driver, and the full e2e walkthrough passed with the data stored in
+    Postgres.
+- **The Blueprint is on Render's free plan** with no disk, and prompts for
+  `GROQ_API_KEY` and `DATABASE_URL` (Supabase's Session pooler string, which works
+  over IPv4).
+
+### Critique / backlog
+1. Free-plan cold starts (about a minute after 15 minutes idle) will be the first
+   thing a reviewer notices. A paid instance, or an uptime pinger, removes them.
+2. The worker still runs inside the web process. On Postgres it could move to its
+   own process without code changes to the queue.

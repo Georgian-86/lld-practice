@@ -84,27 +84,35 @@ docker build -t blueprint-lld .
 docker run -p 8080:8080 -v blueprint-data:/data -e GROQ_API_KEY=... blueprint-lld
 ```
 
-## Deploy (Render)
+## Deploy (free: Render + Supabase)
 
-The repo contains a `Dockerfile` and a Render Blueprint (`render.yaml`). The
-Blueprint defines one web service (API, web app and evaluation worker in one
-process), with SQLite on a 1 GB persistent disk at `/data`.
+The repo contains a `Dockerfile` and a Render Blueprint (`render.yaml`) for one web
+service (API, web app and evaluation worker in one process) on Render's **free**
+plan. The free plan has no persistent disk, so data lives in a free **Supabase**
+Postgres database. The app switches to Postgres whenever `DATABASE_URL` is set, and
+creates its tables on first start.
 
-1. In Render: **New → Blueprint**, connect the GitHub repository, and choose the
-   `main` branch.
-2. When asked for `GROQ_API_KEY`, paste a Groq API key. Every other setting comes
-   from `render.yaml`.
-3. **Apply.** Render builds the image (a few minutes) and health-checks
-   `/api/health`. The app is then live at `https://blueprint-lld.onrender.com`
-   (or the name Render assigns).
-4. Check `https://<your-app>.onrender.com/api/health`. It should report
-   `"aiReviewer":"groq:llama-3.3-70b-versatile"`, and the header chip in the app
-   shows the live model instead of *AI: simulated*.
+1. **Supabase:** create a project. In **Connect**, copy the **Session pooler**
+   connection string (it works over IPv4, which Render needs), and put your
+   database password in place of `[YOUR-PASSWORD]`.
+2. **Render:** **New → Blueprint**, connect the GitHub repository, and choose `main`.
+   When prompted, paste `GROQ_API_KEY` and `DATABASE_URL`. Every other setting
+   comes from `render.yaml`.
+3. **Apply.** The first build takes a few minutes. Then
+   `https://<your-app>.onrender.com/api/health` should report
+   `"aiReviewer":"groq:llama-3.3-70b-versatile"`.
 
-Every push to `main` redeploys. Attempts and feedback survive redeploys because
-they live on the disk. The Blueprint uses Render's **Starter** plan because
-persistent disks need a paid instance. On the free plan, the data would be wiped
-on every restart.
+Free-plan caveats:
+- The service sleeps after 15 minutes without traffic, and the next visit takes
+  about a minute to wake it.
+- A free Supabase project pauses after a week without activity. Resume it from the
+  Supabase dashboard; no data is lost.
+- Without `DATABASE_URL`, the app runs on a local SQLite file that is wiped on every
+  restart.
+- With a paid Render plan, you can use a persistent disk and SQLite instead: add a
+  `disk` mounted at `/data` and remove `DATABASE_URL`.
+
+Every push to `main` redeploys.
 
 ## Tests
 
@@ -140,7 +148,8 @@ npm run e2e          # real-browser walkthrough: needs the app running (BASE_URL
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `3001` | HTTP port |
-| `DATABASE_PATH` | `./data/blueprint.db` | SQLite file (attempts, submissions, reports, job queue) |
+| `DATABASE_URL` | – | Postgres connection string (e.g. Supabase). When set, it is used instead of SQLite. |
+| `DATABASE_PATH` | `./data/blueprint.db` | SQLite file, used when `DATABASE_URL` is not set |
 | `LLM_PROVIDER` | `auto` | `auto` (Claude if its key is set, else Groq if its key is set, else simulator), `anthropic`, `groq`, `simulated`, `none` (rules only) |
 | `ANTHROPIC_API_KEY` | – | Enables the Claude reviewer |
 | `GROQ_API_KEY` | – | Enables the Groq reviewer |
@@ -189,9 +198,10 @@ Key decisions (details in the design note):
 
 - There are no accounts. Each browser gets an anonymous learner id, so history
   doesn't follow you across devices.
-- SQLite with a single process: fine for a prototype, not for horizontal
-  scaling. The repository and queue interfaces are where Postgres or a real queue
-  would slot in.
+- Storage is SQLite (a local file) or Postgres (`DATABASE_URL`), behind the same
+  repository and queue interfaces. The Postgres queue claims jobs with
+  `FOR UPDATE SKIP LOCKED`, so several instances could share it. The evaluation
+  worker still runs inside the web process.
 - The offline simulator's judgement is heuristic. Real qualitative feedback needs
   `GROQ_API_KEY` or `ANTHROPIC_API_KEY`. The Groq path is covered by tests against
   mocked HTTP. It has not yet run against the live API from the build environment,

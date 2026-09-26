@@ -18,20 +18,15 @@ import { RuleBasedEvaluator } from './evaluation/rule-based-evaluator';
 import { defaultRules } from './evaluation/rules';
 import { ScoreAggregator } from './evaluation/score-aggregator';
 import { SubmissionParserRegistry } from './formats/parsers';
-import { openDatabase, type Database } from './infrastructure/database';
 import { InMemoryProblemCatalog } from './infrastructure/problem-catalog';
 import { InMemorySampleDesigns } from './infrastructure/sample-catalog';
-import {
-  SqliteAttemptRepository,
-  SqliteEvaluationRepository,
-  SqliteSubmissionRepository,
-} from './infrastructure/sqlite-repositories';
-import { SqliteJobQueue } from './infrastructure/sqlite-job-queue';
+import { openSqliteStorage, type Storage } from './infrastructure/storage';
 import { randomIds, systemClock } from './infrastructure/system';
 import { EvaluationWorker, type WorkerLogger } from './worker/evaluation-worker';
 
 export interface ContainerOverrides {
-  db?: Database;
+  /** Persistence (SQLite file by default; Postgres when DATABASE_URL is set, opened by the server). */
+  storage?: Storage;
   clock?: Clock;
   ids?: IdGenerator;
   problems?: ProblemCatalog;
@@ -46,17 +41,14 @@ export type Container = ReturnType<typeof createContainer>;
 
 /** Composition root: the only place that knows concrete classes. */
 export function createContainer(config: AppConfig, overrides: ContainerOverrides = {}) {
-  const db = overrides.db ?? openDatabase(config.databasePath);
   const clock = overrides.clock ?? systemClock;
   const ids = overrides.ids ?? randomIds;
+  const storage = overrides.storage ?? openSqliteStorage(config.databasePath, ids, clock);
   const problems = overrides.problems ?? InMemoryProblemCatalog.fromDirectory(config.problemsDir);
   const samples = InMemorySampleDesigns.fromDirectory(join(config.problemsDir, 'samples'), problems.list().map((p) => p.id));
   const logger: WorkerLogger = overrides.logger ?? { info() {}, warn() {}, error() {} };
 
-  const attempts = new SqliteAttemptRepository(db);
-  const submissions = new SqliteSubmissionRepository(db);
-  const evaluations = new SqliteEvaluationRepository(db);
-  const queue = new SqliteJobQueue(db, ids, clock);
+  const { attempts, submissions, evaluations, queue } = storage;
 
   const llmClient = overrides.llmClient !== undefined ? overrides.llmClient : buildLlmClient(config);
   const aiEvaluators: Evaluator[] = llmClient ? [new LlmDesignReviewer(llmClient)] : [];
@@ -93,7 +85,7 @@ export function createContainer(config: AppConfig, overrides: ContainerOverrides
   const worker = new EvaluationWorker(queue, evaluationService, clock, config.worker, logger);
 
   return {
-    db,
+    storage,
     problems,
     practice,
     progress,
