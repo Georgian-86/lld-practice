@@ -156,16 +156,30 @@ async function dragConnect(fromName, toName) {
   await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 10 });
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
   await page.waitForTimeout(100); // let React Flow register the handle under the pointer
+  // Evidence for a missed gesture: what is actually under the pointer at each end, and the connection line.
+  const under = await page.evaluate(
+    ([ax, ay, bx, by]) => {
+      const describe = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return 'nothing';
+        const node = el.closest('.react-flow__node');
+        return `${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 3).join('.')}${node ? ` in node "${node.textContent?.slice(0, 20)}"` : ''}`;
+      };
+      return { atSource: describe(ax, ay), atTarget: describe(bx, by), connecting: Boolean(document.querySelector('.react-flow__connection')) };
+    },
+    [a.x + a.width / 2, a.y + a.height / 2, b.x + b.width / 2, b.y + b.height / 2],
+  );
+  await page.screenshot({ path: `${OUT}connect-${fromName}-${toName}-${fromSide}.png` });
   await page.mouse.up();
-  return { a, b, sides: `${fromSide}→${toSide}` };
+  return { a, b, sides: `${fromSide}→${toSide}`, under, fromBox, toBox };
 }
 {
   let attempt = await dragConnect('ParkingLot', 'Floor');
   const connected = () => page.locator('.react-flow__edge').first().waitFor({ timeout: 4000 }).then(() => true, () => false);
   if (!(await connected())) {
-    console.log(`  (connect gesture missed: from ${JSON.stringify(attempt.a)} to ${JSON.stringify(attempt.b)}; measuring again)`);
+    console.log(`  (connect gesture missed ${attempt.sides}: ${JSON.stringify({ a: attempt.a, b: attempt.b, under: attempt.under, fromBox: attempt.fromBox, toBox: attempt.toBox })}; measuring again)`);
     attempt = await dragConnect('ParkingLot', 'Floor');
-    if (!(await connected())) throw new Error(`Dragging between handles did not create a relationship (from ${JSON.stringify(attempt.a)} to ${JSON.stringify(attempt.b)})`);
+    if (!(await connected())) throw new Error(`Dragging between handles did not create a relationship: ${JSON.stringify({ sides: attempt.sides, under: attempt.under, a: attempt.a, b: attempt.b })}`);
   }
 }
 await page.getByTitle(/^FR-1:/).dragTo(canvasNode('Floor'));
