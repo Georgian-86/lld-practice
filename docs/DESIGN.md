@@ -1,5 +1,7 @@
 # Design note
 
+Live prototype: https://blueprint-lld.onrender.com · Code: https://github.com/Georgian-86/lld-practice
+
 ## 1. MVP in one paragraph
 
 A learner picks one of four problems (Parking Lot, Library Management, Vending
@@ -52,8 +54,11 @@ problems/*.json   problem catalogue (and problems/samples/): data, validated at 
 
 ## 4. Core domain model
 
+**Practice domain:** attempts, immutable submissions and their lifecycle, and the formats that parse into one design model.
+
 ```mermaid
 classDiagram
+  direction LR
   class Attempt {
     +start() Attempt
     +saveDraft(draft)
@@ -68,23 +73,32 @@ classDiagram
   class SubmissionLifecycle {
     +next(status, event) SubmissionStatus
   }
-  class DesignModel
-  class EvaluationReport
-  class Finding
-  Attempt "1" o-- "*" Submission : versions
-  Submission --> DesignModel : normalised snapshot
-  Submission ..> SubmissionLifecycle : transitions
-  Submission "1" -- "0..1" EvaluationReport
-  EvaluationReport "1" *-- "*" Finding
-
+  class PracticeContext {
+    +curveball: CurveballAnswer
+    +timing: InterviewTiming
+    +of(submission) PracticeContext
+  }
   class SubmissionParser {
     <<interface>>
     +parse(draft) ParseResult
   }
+  Attempt "1" o-- "*" Submission : versions
+  Submission --> DesignModel : normalised snapshot
+  Submission ..> SubmissionLifecycle : transitions
+  Submission ..> PracticeContext : mode it was made in
+  Submission "1" -- "0..1" EvaluationReport
+  EvaluationReport "1" *-- "*" Finding
+  SubmissionParserRegistry o-- SubmissionParser
   StructuredDesignParser ..|> SubmissionParser
   MermaidDesignParser ..|> SubmissionParser
-  SubmissionParserRegistry o-- SubmissionParser
+  SubmissionParser ..> DesignModel : produces
+```
 
+**Evaluation:** a pipeline of evaluators (rules first, then a grounded AI reviewer), with resilience as decorators around the model client.
+
+```mermaid
+classDiagram
+  direction LR
   class Evaluator {
     <<interface>>
     +evaluate(context) EvaluatorOutput
@@ -93,36 +107,30 @@ classDiagram
     <<interface>>
     +check(index, problem) Finding[]
   }
-  RuleBasedEvaluator ..|> Evaluator
-  LlmDesignReviewer ..|> Evaluator
-  RuleBasedEvaluator o-- DesignRule
-  EvaluationPipeline o-- Evaluator
-  EvaluationPipeline --> ScoreAggregator
-
   class LlmClient {
     <<interface>>
     +complete(request) LlmResponse
   }
-  LlmDesignReviewer --> LlmClient
-  AnthropicLlmClient ..|> LlmClient
-  GroqLlmClient ..|> LlmClient
-  SimulatedLlmClient ..|> LlmClient
-  TimeoutLlmClient ..|> LlmClient
-  RetryingLlmClient ..|> LlmClient
-  CachingLlmClient ..|> LlmClient
-
-  class PracticeContext {
-    +curveball: CurveballAnswer
-    +timing: InterviewTiming
-    +of(submission) PracticeContext
-  }
-  Submission ..> PracticeContext : practice mode it was made in
   class CurveballService {
     +adaptive(learner, submission) AdaptiveCurveball
   }
-  CurveballService --> LlmClient : wording only (optional)
+  EvaluationPipeline o-- Evaluator
+  EvaluationPipeline --> ScoreAggregator
+  RuleBasedEvaluator ..|> Evaluator
+  LlmDesignReviewer ..|> Evaluator
+  RuleBasedEvaluator o-- DesignRule
   ScenarioRule ..|> DesignRule
+  LlmDesignReviewer --> LlmClient
+  CurveballService --> LlmClient : wording only
+  AnthropicLlmClient ..|> LlmClient
+  GroqLlmClient ..|> LlmClient
+  SimulatedLlmClient ..|> LlmClient
+  RetryingLlmClient ..|> LlmClient : decorator
+  RetryingLlmClient o-- LlmClient : wraps
 ```
+
+Timeout and caching are decorators in the same way as `RetryingLlmClient`
+(`CachingLlmClient → RetryingLlmClient → TimeoutLlmClient → provider`).
 
 | Class / interface | Responsibility |
 |---|---|
@@ -137,7 +145,7 @@ classDiagram
 | `EvaluationPipeline` | Composite: deterministic evaluators (must succeed), then LLM evaluators (their failure degrades the report to *partial*), then scoring. |
 | `LlmClient` + decorators | Port for text generation. Timeout, retry and caching are **Decorators**, so resilience policy lives in one place and is tested once. |
 | `ScoreAggregator` | Combines rule evidence and AI judgement per criterion, weighted by the problem's rubric. |
-| `JobQueue` / `EvaluationWorker` | Durable queue port (SQLite implementation) and the worker that drains it with backoff. |
+| `JobQueue` / `EvaluationWorker` | Durable queue port (SQLite and Postgres implementations; Postgres claims with `FOR UPDATE SKIP LOCKED`) and the worker that drains it with backoff. |
 | `PracticeContext` | Value object: the practice mode a submission was made in (a curveball answered, interview timing). The single interpretation used by summaries and achievements. |
 | `CurveballService` | Picks the point of change a design is least ready for (deterministic, same matching as the scoring rule) and turns it into a change request. A model only rewords it; a template is the fallback. |
 | `diffDesigns` (shared) | Class-by-class change impact between two versions: added, modified (own code changed), untouched, plus the existing abstractions new classes plugged into. |
@@ -207,10 +215,12 @@ best-effort for AI findings.
 
 - Submit returns immediately (`202`, status `submitted`). The client polls with
   the server-suggested interval and shows a stepper (checks → AI review → scoring).
-- Jobs live in SQLite, so they survive restarts. Claiming is atomic. Jobs left by
+- Jobs live in the database (SQLite, or Postgres in the deployed app), so they survive restarts. Claiming is atomic. Jobs left by
   a crashed worker are released on boot and the submission is re-run.
 - The LLM call has a timeout, and retries with exponential backoff only on
-  retryable errors (timeouts, 429, 5xx). Auth and bad-request errors fail fast.
+  retryable errors (timeouts, 429, 5xx). On a rate limit it waits at least as long
+  as the provider's `retry-after` asks (capped at 30 s). Auth and bad-request
+  errors fail fast.
 - **If the AI still fails, the learner still gets the rule-based report**
   (`evaluated_partial`), with a clear banner and a *Retry AI review* action.
 - Unexpected errors retry the job up to 3 times, then the submission is marked
@@ -232,8 +242,7 @@ best-effort for AI findings.
 - **New practice mode:** interpret it in `PracticeContext`, so summaries and
   achievements pick it up in one place.
 - **Scaling (light HLD):** the web tier only enqueues. Move `EvaluationWorker`
-  to its own process against a shared queue (swap `SqliteJobQueue` for
-  Postgres/SQS behind `JobQueue`), use Postgres behind the repositories, put a
+  to its own process against the shared Postgres queue (or SQS behind `JobQueue`), put a
   concurrency limit on LLM calls, and stream status over SSE instead of polling.
 
 ## 9. Key trade-offs
@@ -243,7 +252,7 @@ best-effort for AI findings.
 | Submission format | Structured form (+ Mermaid) | More friction than free text, but it enables explainable checks and rehearses interview reasoning. Mermaid import softens the friction. |
 | Scoring basis | Property rubric | Less "precise" than similarity to a reference, but fair to alternative designs. |
 | AI role | Grounded, capped judge | Less creative than an unconstrained reviewer, but consistent and can't contradict facts. |
-| Queue | SQLite table + in-process worker | Not horizontally scalable as is, but zero infrastructure. The interface allows a swap. |
+| Queue | Database table + in-process worker | Not horizontally scalable as is, but no extra infrastructure (no Redis). The Postgres implementation already supports several workers (`SKIP LOCKED`). |
 | Storage | SQLite (Node built-in driver) by default; Postgres when `DATABASE_URL` is set | SQLite needs no setup. Postgres (e.g. free Supabase) is for hosts without a persistent disk. Both implement the same repository and queue ports, and the HTTP suite runs on each. |
 | Real-time updates | Polling with server hint | Slightly chattier than SSE, but trivial and robust through proxies. |
 | Identity | Anonymous per-browser learner id | No cross-device history; auth is out of scope. Only one module and the server's learner resolution would change. |
