@@ -155,7 +155,13 @@ async function dragConnect(fromName, toName) {
   await page.mouse.down();
   await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 10 });
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
-  await page.waitForTimeout(100); // let React Flow register the handle under the pointer
+  // Release only once React Flow has registered the target handle under the pointer, as a person
+  // would (they see it highlight). On a busy page (the live site, with autosave and live checks
+  // landing), releasing ~100ms after arriving let the drop fall through without a connection.
+  await target
+    .and(page.locator('.connectingto'))
+    .waitFor({ timeout: 3000 })
+    .catch(() => {});
   // Evidence for a missed gesture: what is actually under the pointer at each end, and the connection line.
   const under = await page.evaluate(
     ([ax, ay, bx, by]) => {
