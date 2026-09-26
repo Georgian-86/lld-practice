@@ -86,21 +86,25 @@ docker run -p 8080:8080 -v blueprint-data:/data -e GROQ_API_KEY=... blueprint-ll
 
 ## Deploy (Render)
 
-The repo contains a `Dockerfile` and a Render Blueprint (`render.yaml`). The Blueprint
-defines one web service, with SQLite on a 1 GB persistent disk at `/data`.
+The repo contains a `Dockerfile` and a Render Blueprint (`render.yaml`). The
+Blueprint defines one web service (API, web app and evaluation worker in one
+process), with SQLite on a 1 GB persistent disk at `/data`.
 
-1. Push this branch, or merge it into the branch you deploy from.
-2. In Render: **New → Blueprint**, connect this repository, and pick that branch.
-3. When prompted for secrets, paste **`GROQ_API_KEY`** (Groq, `llama-3.3-70b-versatile`)
-   or `ANTHROPIC_API_KEY` (Claude). Leave both empty to run with the offline reviewer.
-   The provider is picked automatically from whichever key is set. After the first
-   deploy, `GET /api/health` reports the active reviewer (e.g. `groq:llama-3.3-70b-versatile`),
-   and the header chip in the app changes from *AI: simulated* to the live model.
-4. **Apply.** Render builds the image and health-checks `/api/health`. The app is
-   then live at `https://blueprint-lld.onrender.com` (or the name you chose).
+1. In Render: **New → Blueprint**, connect the GitHub repository, and choose the
+   `main` branch.
+2. When asked for `GROQ_API_KEY`, paste a Groq API key. Every other setting comes
+   from `render.yaml`.
+3. **Apply.** Render builds the image (a few minutes) and health-checks
+   `/api/health`. The app is then live at `https://blueprint-lld.onrender.com`
+   (or the name Render assigns).
+4. Check `https://<your-app>.onrender.com/api/health`. It should report
+   `"aiReviewer":"groq:llama-3.3-70b-versatile"`, and the header chip in the app
+   shows the live model instead of *AI: simulated*.
 
-Every push to that branch redeploys. Attempts and feedback survive redeploys
-because they live on the disk.
+Every push to `main` redeploys. Attempts and feedback survive redeploys because
+they live on the disk. The Blueprint uses Render's **Starter** plan because
+persistent disks need a paid instance. On the free plan, the data would be wiped
+on every restart.
 
 ## Tests
 

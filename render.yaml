@@ -1,19 +1,31 @@
-# One-click deploy on Render (Blueprint). Uses the Dockerfile; SQLite lives on a persistent disk.
+# Render Blueprint: New → Blueprint → pick this repo → Apply.
+# One Docker web service (API + web app + evaluation worker in one process),
+# with SQLite on a persistent disk so attempts and history survive redeploys.
 services:
   - type: web
     name: blueprint-lld
     runtime: docker
-    plan: starter # persistent disks need a paid instance
+    plan: starter # a persistent disk needs a paid instance (the free plan wipes data on every restart)
+    region: singapore
     dockerfilePath: ./Dockerfile
-    autoDeploy: true
+    autoDeploy: true # every push to the deployed branch redeploys
     healthCheckPath: /api/health
     disk:
       name: data
-      mountPath: /data
+      mountPath: /data # DATABASE_PATH=/data/blueprint.db is set in the Dockerfile
       sizeGB: 1
     envVars:
-      # Set ONE of these in the dashboard (never commit keys). Without either, the offline reviewer is used.
-      - key: ANTHROPIC_API_KEY
-        sync: false
+      # Secret: you are asked for it once, when the Blueprint is created. Never commit it.
       - key: GROQ_API_KEY
         sync: false
+      # Non-secret settings (the Dockerfile already sets PORT and DATABASE_PATH).
+      - key: NODE_ENV
+        value: production
+      - key: LLM_PROVIDER
+        value: auto # uses Groq when GROQ_API_KEY is set; add ANTHROPIC_API_KEY later to switch to Claude
+      - key: LLM_TIMEOUT_MS
+        value: "60000"
+      - key: WORKER_CONCURRENCY
+        value: "2"
+      - key: LOG_LEVEL
+        value: info
