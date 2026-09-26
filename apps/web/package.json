@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "e2e": "node e2e/run.mjs",
+    "review-check": "node e2e/review-check.mjs",
     "test": "vitest run",
     "demo": "node e2e/demo.mjs"
   },

@@ -126,6 +126,28 @@ describe('GodClassRule', () => {
     d.entities[0]!.responsibilities = Array.from({ length: 7 }, (_, i) => `job ${i}`);
     expect(run(new GodClassRule(), d)[0]?.severity).toBe('minor');
   });
+
+  it('flags a class that holds most of the design, even under every absolute limit', () => {
+    const d = design({
+      entities: [
+        entity('ParkingManager', 'class', {
+          responsibilities: ['Does everything'],
+          methods: ['park()', 'unpark()', 'computeFee()', 'findSpot()', 'printTicket()', 'takePayment()', 'openGate()'],
+        }),
+        entity('Car', 'class', { responsibilities: ['A car'] }),
+      ],
+      relationships: [rel('ParkingManager', 'association', 'Car')],
+    });
+    const found = run(new GodClassRule(), d);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.evidence.entities).toEqual(['ParkingManager']);
+    expect(found[0]?.message).toContain("8 of the design's 9 methods and responsibilities");
+    expect(found[0]?.severity).toBe('major');
+  });
+
+  it('leaves a small orchestrator in a well-spread design alone', () => {
+    expect(run(new GodClassRule())).toEqual([]);
+  });
 });
 
 describe('UndefinedResponsibilityRule', () => {
