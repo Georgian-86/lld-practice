@@ -130,6 +130,18 @@ describe('LLM decorators', () => {
     expect(sleep).toHaveBeenCalledTimes(1);
   });
 
+  it('waits as long as a rate limit asks, up to a cap', async () => {
+    const complete = vi
+      .fn()
+      .mockRejectedValueOnce(new LlmError('busy', true, undefined, 7_000))
+      .mockRejectedValueOnce(new LlmError('busy', true, undefined, 600_000))
+      .mockResolvedValueOnce({ text: 'ok', model: 'm' });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const client = new RetryingLlmClient({ name: 'x', complete }, { maxRetries: 2, baseDelayMs: 100, sleep });
+    await expect(client.complete(request)).resolves.toEqual({ text: 'ok', model: 'm' });
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([7_000, 30_000]);
+  });
+
   it('does not retry non-retryable errors', async () => {
     const complete = vi.fn().mockRejectedValue(new LlmError('bad key', false));
     const client = new RetryingLlmClient({ name: 'x', complete }, { maxRetries: 3, baseDelayMs: 1, sleep: async () => {} });
