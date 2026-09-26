@@ -126,8 +126,17 @@ async function stableBox(locator) {
   return previous;
 }
 async function dragConnect(fromName, toName) {
-  const source = canvasNode(fromName).locator('.react-flow__handle-right');
-  const target = canvasNode(toName).locator('.react-flow__handle-left');
+  // Use the handles that face each other, as a person would: new classes can land on
+  // either side (placement depends on measured sizes), and dragging across the source's
+  // own body to the far handle proved unreliable in CI's headless Chrome.
+  const fromBox = await stableBox(canvasNode(fromName));
+  const toBox = await stableBox(canvasNode(toName));
+  const dx = toBox.x + toBox.width / 2 - (fromBox.x + fromBox.width / 2);
+  const dy = toBox.y + toBox.height / 2 - (fromBox.y + fromBox.height / 2);
+  const [fromSide, toSide] =
+    Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? ['right', 'left'] : ['left', 'right']) : dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom'];
+  const source = canvasNode(fromName).locator(`.react-flow__handle-${fromSide}`);
+  const target = canvasNode(toName).locator(`.react-flow__handle-${toSide}`);
   await canvasNode(fromName).hover();
   const a = await stableBox(source);
   const b = await stableBox(target);
@@ -137,7 +146,7 @@ async function dragConnect(fromName, toName) {
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
   await page.waitForTimeout(100); // let React Flow register the handle under the pointer
   await page.mouse.up();
-  return { a, b };
+  return { a, b, sides: `${fromSide}→${toSide}` };
 }
 {
   let attempt = await dragConnect('ParkingLot', 'Floor');

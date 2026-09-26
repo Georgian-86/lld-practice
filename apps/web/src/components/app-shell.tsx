@@ -33,12 +33,16 @@ function AiStatus() {
   if (!data) return null;
   const simulated = data.aiReviewer.startsWith('simulated');
   const disabled = data.aiReviewer === 'disabled';
-  const label = disabled ? 'Rules only' : simulated ? 'AI: simulated' : 'AI: Claude';
+  // aiReviewer is "<provider>:<model>", e.g. "groq:llama-3.3-70b-versatile" or "anthropic:claude-opus-5".
+  const [provider, ...modelParts] = data.aiReviewer.split(':');
+  const model = modelParts.join(':');
+  const providerName = PROVIDER_NAMES[provider ?? ''] ?? provider;
+  const label = disabled ? 'Rules only' : simulated ? 'AI: simulated' : `AI: ${providerName}`;
   const tip = disabled
     ? 'AI review is turned off. Feedback comes from deterministic design checks.'
     : simulated
-      ? 'No API key is configured, so an offline simulator stands in for the AI reviewer. Set ANTHROPIC_API_KEY to use Claude.'
-      : `AI review by ${data.aiReviewer.replace('anthropic:', '')}, grounded on deterministic design checks.`;
+      ? 'No API key is configured, so an offline simulator stands in for the AI reviewer. Set GROQ_API_KEY or ANTHROPIC_API_KEY to use a real model.'
+      : `AI review by ${model || providerName} (${providerName}), grounded on deterministic design checks.`;
   return (
     <Tooltip content={tip} side="bottom">
       <span className="hidden items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg-2 sm:inline-flex">
@@ -100,3 +104,5 @@ export function AppShell() {
 export function PageContainer({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn('mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6', className)}>{children}</div>;
 }
+
+const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', groq: 'Groq' };

@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/Georgian-86/lld-practice/actions/workflows/ci.yml/badge.svg)](https://github.com/Georgian-86/lld-practice/actions/workflows/ci.yml)
 
+**Live:** https://blueprint-lld.onrender.com (free hosting: the first visit after a
+quiet spell takes about a minute to wake the server).
+
 Blueprint helps learners **practise Low-Level Design repeatedly** and understand
 where a design can improve:
 
@@ -28,7 +31,9 @@ where a design can improve:
 
 ## Reviewer quick tour (5 minutes)
 
-1. `npm install && npm run dev`, then open http://localhost:5173 (no API key needed).
+1. Open https://blueprint-lld.onrender.com. It runs the real Groq reviewer. To run
+   locally instead: `npm install && npm run dev`, then http://localhost:5173 (no API
+   key needed).
 2. On the home page, click **See a sample report**. A worked Parking Lot design is
    submitted and evaluated in the background, and the report opens when it's ready.
 3. On the report, switch the diagram between **Findings** and **Walkthroughs**,
