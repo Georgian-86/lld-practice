@@ -1,28 +1,29 @@
 # Render Blueprint: New → Blueprint → pick this repo → Apply.
-# One Docker web service (API + web app + evaluation worker in one process),
-# with SQLite on a persistent disk so attempts and history survive redeploys.
+# One Docker web service (API + web app + evaluation worker in one process) on
+# Render's FREE plan. The free plan has no persistent disk, so data lives in an
+# external Postgres (e.g. a free Supabase project) given as DATABASE_URL.
+# Without DATABASE_URL the app still runs, on a local SQLite file that is wiped
+# whenever the free instance restarts or sleeps.
 services:
   - type: web
     name: blueprint-lld
     runtime: docker
-    plan: starter # a persistent disk needs a paid instance (the free plan wipes data on every restart)
+    plan: free
     region: singapore
     dockerfilePath: ./Dockerfile
     autoDeploy: true # every push to the deployed branch redeploys
     healthCheckPath: /api/health
-    disk:
-      name: data
-      mountPath: /data # DATABASE_PATH=/data/blueprint.db is set in the Dockerfile
-      sizeGB: 1
     envVars:
-      # Secret: you are asked for it once, when the Blueprint is created. Never commit it.
+      # Secrets: you are asked for them once, when the Blueprint is created. Never commit them.
       - key: GROQ_API_KEY
         sync: false
-      # Non-secret settings (the Dockerfile already sets PORT and DATABASE_PATH).
+      - key: DATABASE_URL # Supabase → Connect → "Session pooler" connection string (IPv4)
+        sync: false
+      # Non-secret settings (the Dockerfile sets PORT).
       - key: NODE_ENV
         value: production
       - key: LLM_PROVIDER
-        value: auto # uses Groq when GROQ_API_KEY is set; add ANTHROPIC_API_KEY later to switch to Claude
+        value: auto # Groq when GROQ_API_KEY is set; add ANTHROPIC_API_KEY later to switch to Claude
       - key: LLM_TIMEOUT_MS
         value: "60000"
       - key: WORKER_CONCURRENCY

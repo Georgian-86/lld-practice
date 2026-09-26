@@ -21,6 +21,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3001),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_PATH: z.string().optional(),
+  /** Postgres connection string (e.g. Supabase). When set, it is used instead of the SQLite file. */
+  DATABASE_URL: z.string().url().optional(),
   PROBLEMS_DIR: z.string().optional(),
   WEB_DIST_DIR: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -57,6 +59,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     env: parsed.NODE_ENV,
     port: parsed.PORT,
     host: parsed.HOST,
+    databaseUrl: parsed.DATABASE_URL,
     databasePath: parsed.DATABASE_PATH ?? resolve(findUp('apps') ?? here, '..', 'data', 'blueprint.db'),
     problemsDir,
     webDistDir: parsed.WEB_DIST_DIR ?? findUp('apps/web/dist'),

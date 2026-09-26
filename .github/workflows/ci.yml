@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: HTTP integration suite on Postgres (PGlite)
+        run: npm run test:postgres -w @blueprint/api
       - run: npm run build
 
   e2e:
