@@ -3,6 +3,8 @@ import { LlmError, type LlmClient, type LlmRequest, type LlmResponse } from './l
 export interface GroqClientOptions {
   apiKey: string;
   model: string;
+  /** Reasoning effort for reasoning models (gpt-oss); ignored for others. */
+  effort?: 'low' | 'medium' | 'high';
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
@@ -13,11 +15,16 @@ interface ChatCompletion {
   error?: { message?: string; code?: string };
 }
 
+/** Groq models that accept a JSON Schema response format and reasoning controls. */
+const REASONING_MODEL = /^openai\/gpt-oss-/;
+
 /**
- * Groq adapter (OpenAI-compatible chat completions). JSON mode guarantees
- * syntactically valid JSON; the schema itself is given in the prompt and
- * enforced afterwards by the reviewer's Zod validation + repair retry.
- * Retries and timeouts are applied by the decorators, not here.
+ * Groq adapter (OpenAI-compatible chat completions). Reasoning models (gpt-oss)
+ * get the review schema as a best-effort `json_schema` response format and a
+ * reasoning effort, with the reasoning kept out of the reply; other models use
+ * JSON mode. Either way the schema is also in the prompt, and the reviewer's Zod
+ * validation + repair retry enforces it. Retries and timeouts are applied by the
+ * decorators, not here.
  */
 export class GroqLlmClient implements LlmClient {
   readonly name: string;
@@ -37,16 +44,7 @@ export class GroqLlmClient implements LlmClient {
       response = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { authorization: `Bearer ${this.options.apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model: this.options.model,
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: request.user },
-          ],
-          temperature: 0.2,
-          max_completion_tokens: 4096,
-          response_format: { type: 'json_object' },
-        }),
+        body: JSON.stringify(this.body(system, request)),
         signal,
       });
     } catch (error) {
@@ -76,5 +74,25 @@ export class GroqLlmClient implements LlmClient {
     if (choice?.finish_reason === 'length') throw new LlmError('The AI review was cut off before it finished.', true);
     if (!text.trim()) throw new LlmError('The AI reviewer returned an empty response.', true);
     return { text, model: body?.model ?? this.options.model };
+  }
+
+  private body(system: string, request: LlmRequest) {
+    const messages = [
+      { role: 'system', content: system },
+      { role: 'user', content: request.user },
+    ];
+    if (!REASONING_MODEL.test(this.options.model)) {
+      return { model: this.options.model, messages, temperature: 0.2, max_completion_tokens: 4096, response_format: { type: 'json_object' } };
+    }
+    return {
+      model: this.options.model,
+      messages,
+      temperature: 0.2,
+      // Reasoning tokens share this budget, so leave room for them and the review.
+      max_completion_tokens: 12_000,
+      reasoning_effort: this.options.effort ?? 'medium',
+      include_reasoning: false,
+      response_format: { type: 'json_schema', json_schema: { name: 'design_review', schema: request.jsonSchema, strict: false } },
+    };
   }
 }

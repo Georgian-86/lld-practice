@@ -69,7 +69,7 @@ reviewer is an offline simulator, clearly labelled *AI (sim)* in the UI. To use 
 real model, set one key:
 
 ```bash
-GROQ_API_KEY=gsk_... npm run dev          # Groq (default model llama-3.3-70b-versatile)
+GROQ_API_KEY=gsk_... npm run dev          # Groq (default model openai/gpt-oss-120b)
 ANTHROPIC_API_KEY=sk-ant-... npm run dev  # Claude (default model claude-opus-5)
 ```
 
@@ -105,7 +105,7 @@ creates its tables on first start.
    comes from `render.yaml`.
 3. **Apply.** The first build takes a few minutes. Then
    `https://<your-app>.onrender.com/api/health` should report
-   `"aiReviewer":"groq:llama-3.3-70b-versatile"`.
+   `"aiReviewer":"groq:openai/gpt-oss-120b"`.
 
 Free-plan caveats:
 - The service sleeps after 15 minutes without traffic, and the next visit takes
@@ -158,7 +158,7 @@ npm run e2e          # real-browser walkthrough: needs the app running (BASE_URL
 | `LLM_PROVIDER` | `auto` | `auto` (Claude if its key is set, else Groq if its key is set, else simulator), `anthropic`, `groq`, `simulated`, `none` (rules only) |
 | `ANTHROPIC_API_KEY` | – | Enables the Claude reviewer |
 | `GROQ_API_KEY` | – | Enables the Groq reviewer |
-| `LLM_MODEL` | per provider | `claude-opus-5` (Anthropic) or `llama-3.3-70b-versatile` (Groq) |
+| `LLM_MODEL` | per provider | `claude-opus-5` (Anthropic) or `openai/gpt-oss-120b` (Groq) |
 | `LLM_EFFORT` | `medium` | `low` / `medium` / `high` |
 | `LLM_TIMEOUT_MS` / `LLM_MAX_RETRIES` | `90000` / `2` | Per-call timeout and retries (retryable errors only) |
 | `LLM_SIMULATED_LATENCY_MS` | `2500` | Makes the offline reviewer feel real in demos |

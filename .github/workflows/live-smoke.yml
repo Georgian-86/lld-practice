@@ -1,6 +1,6 @@
 name: Live smoke test
 
-# Runs the full browser walkthrough against a deployed instance (by default the
+# Checks the analysis (scores and AI findings), then runs the full browser walkthrough against a deployed instance (by default the
 # Render deployment), with its real AI reviewer and database. Start it from the
 # Actions tab (Run workflow) once Render has deployed the commit you want to test.
 on:
@@ -32,7 +32,14 @@ jobs:
             echo "waiting for ${{ inputs.base_url }} ($i)"; sleep 10
           done
           echo "The service did not become healthy"; exit 1
+      - name: Analysis check (weak < reasonable < improved, AI grounded in the design)
+        run: node e2e/review-check.mjs
+        working-directory: apps/web
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          EXPECT_REAL_AI: '1'
       - run: npm run e2e
+        if: always()
         env:
           BASE_URL: ${{ inputs.base_url }}
       - name: Upload screenshots

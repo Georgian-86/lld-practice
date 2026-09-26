@@ -5,22 +5,30 @@ import { listToSentence } from '../text';
 import { ruleFinding } from './finding';
 
 export const GOD_CLASS_LIMITS = { responsibilities: 6, methods: 12, degree: 7 } as const;
+/** A class holding this share of the design's behaviour (with at least `members` of it) owns too much, even under every absolute limit. */
+export const GOD_CLASS_CONCENTRATION = { share: 0.6, members: 6, clear: 0.75 } as const;
 
-/** A class with too many jobs or too many collaborators. */
+/** A class with too many jobs or too many collaborators, or that holds most of the design's behaviour. */
 export class GodClassRule implements DesignRule {
   readonly id = 'god-class';
   readonly criterionId = 'responsibilities' as const;
 
   check(index: DesignIndex): Finding[] {
     const findings: Finding[] = [];
+    const members = (e: (typeof index.entities)[number]) => e.responsibilities.length + e.methods.length;
+    const total = index.entities.reduce((sum, e) => sum + members(e), 0);
     for (const entity of index.entities) {
       const reasons: string[] = [];
+      const own = members(entity);
+      const share = total ? own / total : 0;
+      const concentrated = own >= GOD_CLASS_CONCENTRATION.members && share >= GOD_CLASS_CONCENTRATION.share;
       if (entity.responsibilities.length > GOD_CLASS_LIMITS.responsibilities) {
         reasons.push(`${entity.responsibilities.length} responsibilities`);
       }
       if (entity.methods.length > GOD_CLASS_LIMITS.methods) reasons.push(`${entity.methods.length} methods`);
       const degree = index.degree(entity.name);
       if (degree > GOD_CLASS_LIMITS.degree) reasons.push(`relationships with ${degree} classes`);
+      if (concentrated) reasons.push(`${own} of the design's ${total} methods and responsibilities`);
       if (reasons.length === 0) continue;
       findings.push(
         ruleFinding({
@@ -29,7 +37,11 @@ export class GodClassRule implements DesignRule {
           kind: 'issue',
           // Borderline (just over one limit) is a nudge; several signals, or clearly over, is a real problem.
           severity:
-            reasons.length > 1 || entity.responsibilities.length >= GOD_CLASS_LIMITS.responsibilities + 2 ? 'major' : 'minor',
+            reasons.length > 1 ||
+            entity.responsibilities.length >= GOD_CLASS_LIMITS.responsibilities + 2 ||
+            (concentrated && share >= GOD_CLASS_CONCENTRATION.clear)
+              ? 'major'
+              : 'minor',
           key: entity.name,
           title: `${entity.name} may be doing too much`,
           message: `${entity.name} has ${reasons.join(' and ')}. Classes like this change for many unrelated reasons, which makes them fragile.`,

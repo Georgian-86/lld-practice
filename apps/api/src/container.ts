@@ -107,7 +107,7 @@ function buildLlmClient(config: AppConfig): LlmClient | null {
     llm.provider === 'anthropic'
       ? new AnthropicLlmClient({ apiKey: llm.apiKey, model: llm.model, effort: llm.effort })
       : llm.provider === 'groq'
-        ? new GroqLlmClient({ apiKey: llm.apiKey!, model: llm.model })
+        ? new GroqLlmClient({ apiKey: llm.apiKey!, model: llm.model, effort: llm.effort })
         : new SimulatedLlmClient({ latencyMs: llm.simulatedLatencyMs, failureRate: llm.simulatedFailureRate });
   // Order matters: cache hits skip everything; each retry gets its own timeout.
   return new CachingLlmClient(

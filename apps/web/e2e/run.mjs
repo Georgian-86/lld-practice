@@ -73,7 +73,9 @@ async function audit(page, label) {
   await page.waitForTimeout(450); // sonner enters with a CSS transition, not an animation
   await page.addScriptTag({ path: axePath });
   const violations = await page.evaluate(async () => {
-    const result = await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] });
+    // Toasts that are leaving, or stacked behind the front one, are mid-fade and covered: not something anyone reads.
+    const context = { include: [document], exclude: [['[data-sonner-toast][data-removed="true"]'], ['[data-sonner-toast][data-front="false"]']] };
+    const result = await window.axe.run(context, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] });
     return result.violations
       .filter((v) => v.impact === 'serious' || v.impact === 'critical')
       .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.slice(0, 3).map((n) => `${n.target.join(' ')}${n.any?.[0]?.message ? ` (${n.any[0].message})` : ''}`).join(' | ')}`);
