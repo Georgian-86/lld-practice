@@ -30,6 +30,20 @@ describe('GroqLlmClient', () => {
     expect(body.messages[1]).toEqual({ role: 'user', content: 'Review this design' });
   });
 
+  it('gives reasoning models the schema as a response format, an effort, and room to think', async () => {
+    const fetchImpl = reply(200, { model: 'openai/gpt-oss-120b', choices: [{ message: { content: '{"summary":"ok"}' }, finish_reason: 'stop' }] });
+    const client = new GroqLlmClient({ apiKey: 'k', model: 'openai/gpt-oss-120b', effort: 'high', fetchImpl });
+    await expect(client.complete(request)).resolves.toEqual({ text: '{"summary":"ok"}', model: 'openai/gpt-oss-120b' });
+
+    const body = JSON.parse(fetchImpl.mock.calls[0]![1].body);
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { name: 'design_review', schema: { type: 'object', required: ['summary'] }, strict: false },
+    });
+    expect(body).toMatchObject({ reasoning_effort: 'high', include_reasoning: false });
+    expect(body.max_completion_tokens).toBeGreaterThan(4096);
+  });
+
   it.each([
     [401, false, /API key/],
     [429, true, /rate limited/],
@@ -56,7 +70,7 @@ describe('GroqLlmClient', () => {
 describe('provider selection', () => {
   it('picks Groq automatically when only GROQ_API_KEY is set, with a Groq default model', () => {
     const config = loadConfig({ PROBLEMS_DIR, GROQ_API_KEY: 'test-groq-key' });
-    expect(config.llm).toMatchObject({ provider: 'groq', apiKey: 'test-groq-key', model: 'llama-3.3-70b-versatile' });
+    expect(config.llm).toMatchObject({ provider: 'groq', apiKey: 'test-groq-key', model: 'openai/gpt-oss-120b' });
   });
 
   it('prefers Anthropic when both keys are set, and the simulator when neither is', () => {

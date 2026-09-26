@@ -98,7 +98,7 @@ check(weak.report.findings.some((f) => f.kind === 'issue' && f.evidence.entities
 for (const { label, draft, report } of results) {
   const llm = report.evaluators.find((r) => r.kind === 'llm');
   check(llm?.status === 'ok', `${label}: AI review ran (${llm ? `${llm.status}${llm.error ? `: ${llm.error}` : ''}` : 'no llm evaluator'})`);
-  if (EXPECT_REAL_AI) check(llm?.detail !== 'simulated', `${label}: AI review came from the real model (${llm?.detail})`);
+  if (EXPECT_REAL_AI) check(llm?.status === 'ok' && !/simulated/.test(llm.detail ?? ''), `${label}: AI review came from the real model (${llm?.detail ?? 'none'})`);
   const names = new Set(draft.design.entities.map((e) => e.name.toLowerCase()));
   const ai = report.findings.filter((f) => f.source === 'ai');
   check(ai.length > 0, `${label}: AI contributed ${ai.length} finding(s)`);

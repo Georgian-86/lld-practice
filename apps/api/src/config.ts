@@ -31,7 +31,7 @@ const envSchema = z.object({
   LLM_PROVIDER: z.enum(['auto', 'anthropic', 'groq', 'simulated', 'none']).default('auto'),
   ANTHROPIC_API_KEY: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
-  /** Defaults per provider: claude-opus-5 (Anthropic), llama-3.3-70b-versatile (Groq). */
+  /** Defaults per provider: claude-opus-5 (Anthropic), openai/gpt-oss-120b (Groq). */
   LLM_MODEL: z.string().optional(),
   LLM_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
@@ -53,7 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   if (provider === 'auto') {
     provider = parsed.ANTHROPIC_API_KEY ? 'anthropic' : parsed.GROQ_API_KEY ? 'groq' : 'simulated';
   }
-  const defaultModel = provider === 'groq' ? 'llama-3.3-70b-versatile' : 'claude-opus-5';
+  const defaultModel = provider === 'groq' ? 'openai/gpt-oss-120b' : 'claude-opus-5';
 
   return {
     env: parsed.NODE_ENV,
