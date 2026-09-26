@@ -54,6 +54,12 @@ describe('GroqLlmClient', () => {
     await expect(client.complete(request)).rejects.toMatchObject({ retryable, message: expect.stringMatching(message) });
   });
 
+  it('passes on how long a rate limit asks to wait', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: 'slow down' } }), { status: 429, headers: { 'retry-after': '2.5' } }));
+    const client = new GroqLlmClient({ apiKey: 'k', model: 'm', fetchImpl });
+    await expect(client.complete(request)).rejects.toMatchObject({ retryable: true, retryAfterMs: 2500 });
+  });
+
   it('treats a truncated or empty completion as retryable', async () => {
     const truncated = new GroqLlmClient({ apiKey: 'k', model: 'm', fetchImpl: reply(200, { choices: [{ message: { content: '{"su' }, finish_reason: 'length' }] }) });
     await expect(truncated.complete(request)).rejects.toMatchObject({ retryable: true });

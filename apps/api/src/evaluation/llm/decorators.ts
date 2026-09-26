@@ -32,6 +32,9 @@ export class TimeoutLlmClient implements LlmClient {
   }
 }
 
+/** Longest provider-requested wait we honour; beyond this the review fails and can be retried later. */
+const MAX_RETRY_AFTER_MS = 30_000;
+
 export interface RetryOptions {
   maxRetries: number;
   baseDelayMs: number;
@@ -61,7 +64,10 @@ export class RetryingLlmClient implements LlmClient {
       } catch (error) {
         const retryable = error instanceof LlmError && error.retryable;
         if (!retryable || attempt >= this.options.maxRetries || signal?.aborted) throw error;
-        const delay = this.options.baseDelayMs * 2 ** attempt * (0.75 + Math.random() * 0.5);
+        const backoff = this.options.baseDelayMs * 2 ** attempt * (0.75 + Math.random() * 0.5);
+        // A rate limit says when to come back; waiting less just spends the retry.
+        const asked = error.retryAfterMs ? Math.min(error.retryAfterMs, MAX_RETRY_AFTER_MS) : 0;
+        const delay = Math.max(backoff, asked);
         attempt++;
         await this.sleep(delay);
       }

@@ -28,6 +28,8 @@ export class LlmError extends Error {
     message: string,
     readonly retryable: boolean,
     override readonly cause?: unknown,
+    /** How long the provider asked us to wait before trying again (rate limits). */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'LlmError';

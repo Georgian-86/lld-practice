@@ -71,14 +71,23 @@ async function audit(page, label) {
   // Measure toasts at rest: mid fade-in, their colours are blends that no one reads.
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || !(a.effect?.target instanceof Element) || !a.effect.target.closest('[data-sonner-toast]')), null, { timeout: 5000 }).catch(() => {});
   await page.waitForTimeout(450); // sonner enters with a CSS transition, not an animation
+  // Wait for every toast to finish fading (in or out): axe measures blended colours mid-fade.
+  await page
+    .waitForFunction(() => [...document.querySelectorAll('[data-sonner-toast]')].every((t) => ['0', '1'].includes(getComputedStyle(t).opacity)), null, { timeout: 6000 })
+    .catch(() => {});
   await page.addScriptTag({ path: axePath });
   const violations = await page.evaluate(async () => {
     // Toasts that are leaving, or stacked behind the front one, are mid-fade and covered: not something anyone reads.
-    const context = { include: [document], exclude: [['[data-sonner-toast][data-removed="true"]'], ['[data-sonner-toast][data-front="false"]']] };
+    for (const t of document.querySelectorAll('[data-sonner-toast]')) if (getComputedStyle(t).opacity !== '1') t.setAttribute('data-audit-fading', '');
+    const context = {
+      include: [document],
+      exclude: [['[data-sonner-toast][data-removed="true"]'], ['[data-sonner-toast][data-front="false"]'], ['[data-audit-fading]']],
+    };
+    const toasts = [...document.querySelectorAll('[data-sonner-toast]:not([data-audit-fading])')].map((t) => t.textContent?.trim()).filter(Boolean);
     const result = await window.axe.run(context, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] });
     return result.violations
       .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-      .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.slice(0, 3).map((n) => `${n.target.join(' ')}${n.any?.[0]?.message ? ` (${n.any[0].message})` : ''}`).join(' | ')}`);
+      .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.slice(0, 3).map((n) => `${n.target.join(' ')}${n.any?.[0]?.message ? ` (${n.any[0].message})` : ''}`).join(' | ')}${toasts.length ? ` [toasts on screen: ${toasts.join(' / ')}]` : ''}`);
   });
   for (const v of violations) problems.push(`[a11y] ${label}: ${v}`);
 }

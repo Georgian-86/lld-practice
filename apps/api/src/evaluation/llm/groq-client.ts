@@ -15,6 +15,12 @@ interface ChatCompletion {
   error?: { message?: string; code?: string };
 }
 
+/** Groq's `retry-after` header (seconds), as milliseconds. */
+function retryAfterMs(response: Response): number | undefined {
+  const seconds = Number.parseFloat(response.headers.get('retry-after') ?? '');
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds * 1000) : undefined;
+}
+
 /** Groq models that accept a JSON Schema response format and reasoning controls. */
 const REASONING_MODEL = /^openai\/gpt-oss-/;
 
@@ -64,7 +70,7 @@ export class GroqLlmClient implements LlmClient {
       if (response.status === 401 || response.status === 403) {
         throw new LlmError('The AI reviewer is not configured correctly (Groq rejected the API key).', false);
       }
-      if (response.status === 429) throw new LlmError('The AI reviewer is busy (rate limited).', true);
+      if (response.status === 429) throw new LlmError('The AI reviewer is busy (rate limited).', true, undefined, retryAfterMs(response));
       if (response.status >= 500) throw new LlmError(`AI reviewer error (${response.status}).`, true);
       throw new LlmError(`The AI reviewer rejected the request: ${detail}`, false);
     }
@@ -89,7 +95,7 @@ export class GroqLlmClient implements LlmClient {
       messages,
       temperature: 0.2,
       // Reasoning tokens share this budget, so leave room for them and the review.
-      max_completion_tokens: 12_000,
+      max_completion_tokens: 8_000,
       reasoning_effort: this.options.effort ?? 'medium',
       include_reasoning: false,
       response_format: { type: 'json_schema', json_schema: { name: 'design_review', schema: request.jsonSchema, strict: false } },
